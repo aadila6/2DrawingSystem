@@ -40,10 +40,16 @@
 #include "clipping.cpp"
 #include "vector.hpp"
 
+typedef int OutCode;
+constexpr int INSIDE = 0; // 0000
+constexpr int LEFT = 1;   // 0001
+constexpr int RIGHT = 2;  // 0010
+constexpr int BOTTOM = 4; // 0100
+constexpr int TOP = 8;    // 1000
 /****set in main()****/
 //the number of pixels in the grid
-int grid_width;
-int grid_height;
+constexpr int grid_width = 100;
+constexpr int grid_height = 100;
 
 //the size of pixels sets the inital window height and width
 //don't make the pixels too large or the screen size will be larger than
@@ -64,11 +70,77 @@ void mouse(int button, int state, int x, int y);
 void motion(int x, int y);
 void check();
 
+
+struct Coordinate
+{
+    int x, y;
+    Coordinate(int inputX, int inputY)
+    {
+        x = inputX;
+        y = inputY;
+    }
+};
+
+struct Polygon{
+    //Center of mass is 0 respect to polygon itself
+    //But position vector is the centroid from the viewPort
+    int count;
+    vmml::vector<3, float> position;
+    std::vector<vmml::vector<3, float>> vertices;
+    Polygon(std::vector<vmml::vector<3, float>> vertices, 
+            vmml::vector<3, float> pos){
+        position = pos;
+        this->vertices = vertices;
+        count = vertices.size();
+    }
+    Polygon(std::vector <Coordinate> vert){
+        float xtotal,ytotal;
+        count = vert.size();
+        for(int i = 0; i<vert.size(); i++){
+            xtotal +=vert[i].x;
+            ytotal +=vert[i].y;
+            vertices.push_back(
+                vmml::vector<3, float>(vert[i].x,vert[i].y,1));
+        }
+        position = {xtotal/vert.size(),ytotal/vert.size(),1};
+        for (int i = 0; i < vert.size(); i++){
+            vertices[i] -= position;
+            std::cout << vertices[i] << std::endl;
+        }
+    }
+    
+};
+struct viewDisplay{
+    std::vector<Polygon> polygons;
+    
+
+};
+viewDisplay globalPolygons; 
+struct PolygonBorderPixels{
+        int count;
+        std::vector<Coordinate> Coordinates;
+        PolygonBorderPixels(){
+            count = 0;
+            
+        }
+        PolygonBorderPixels(int incount, std::vector<Coordinate> input) {
+            count = incount;
+            Coordinates = input;
+        }
+    };
+void readinput(char *filename);
+void drawLineDDA(vmml::vector<3, float> start, vmml::vector<3, float> end, bool* buffer);
+void drawLineBresenham(Coordinate start, Coordinate end, bool* buffer );
+vmml::vector<3, float> ComputeIntersection(vmml::vector<3, float> a, vmml::vector<3, float> b);
+OutCode computeoutbound(vmml::vector<3, float> point);
+void clipping(Polygon polygon);
+void rasterization(bool* buffer);
+bool buffer[grid_width * grid_height];
 int main(int argc, char **argv)
 {
     //the number of pixels in the grid
-    grid_width = 100;
-    grid_height = 100;
+    // grid_width = 100;
+    // grid_height = 100;
 
     //the size of pixels sets the inital window height and width
     //don't make the pixels too large or the screen size will be larger than
@@ -89,6 +161,37 @@ int main(int argc, char **argv)
     glutInitWindowSize(win_width, win_height);
     //windown title is "glut demo"
     glutCreateWindow("glut demo");
+    
+    int countVertex = 0;
+    Coordinate start = {10, 10};
+    Coordinate mid = {30, 80};
+    Coordinate end = {90, 20};
+    countVertex = 3;
+    std:: vector <Coordinate> vertices;
+    vertices.push_back(start);
+    vertices.push_back(mid);
+    vertices.push_back(end);
+    Polygon triangle(vertices);
+    //readinput("testfile.txt");
+    // bool buffer[grid_width * grid_height];
+    for(int i = 0; i < grid_width; i++){
+       for(int j=0; j < grid_height; j++){
+           (buffer[i*grid_width + j]) = false;
+       }
+    }
+    globalPolygons.polygons.push_back(triangle);
+    //globalPolygons.buffer = buffer;
+    for(int num = 0; num <=triangle.vertices.size();num++){
+        vmml::vector<3, float> currentVert = triangle.vertices[num] + triangle.position;
+        vmml::vector<3, float> prevVert = triangle.vertices[(num+triangle.vertices.size()-1)%triangle.vertices.size()];
+        drawLineDDA(currentVert, prevVert, buffer);
+    }
+    // drawLineDDA(start, mid, buffer);
+    // drawLineDDA(mid, end, buffer);
+    // drawLineDDA(start, end, buffer);
+    // rasterization(buffer);
+
+    
 
     /*defined glut callback functions*/
     glutDisplayFunc(display); //rendering calls here
@@ -118,52 +221,9 @@ void init()
 void idle()
 {
     //redraw the scene over and over again
-    glutPostRedisplay();
+    //glutPostRedisplay();
 }
-struct Coordinate
-{
-    int x, y;
-    Coordinate(int inputX, int inputY)
-    {
-        x = inputX;
-        y = inputY;
-    }
-};
 
-struct Polygon{
-    //Center of mass is 0 respect to polygon itself
-    vmml::vector<3, float> position;
-    std::vector<vmml::vector<3, float>> vertices;
-    Polygon(std::vector<vmml::vector<3, float>> vertices, 
-            vmml::vector<3, float> pos){
-        position = pos;
-        this->vertices = vertices;
-    }
-    Polygon(std::vector <Coordinate> vert){
-        float xtotal,ytotal;
-        for(int i = 0; i<vert.size(); i++){
-            xtotal +=vert[i].x;
-            ytotal +=vert[i].y;
-            vertices.push_back(
-                vmml::vector<3, float>(vert[i].x,vert[i].y,1));
-        }
-        position = {xtotal/vert.size(),ytotal/vert.size(),1};
-    }
-    //Coordinates
-};
-
-struct PolygonBorderPixels{
-        int count;
-        std::vector<Coordinate> Coordinates;
-        PolygonBorderPixels(){
-            count = 0;
-            
-        }
-        PolygonBorderPixels(int incount, std::vector<Coordinate> input) {
-            count = incount;
-            Coordinates = input;
-        }
-    };
 void swapCor(Coordinate start, Coordinate end)
 {
     int tempx = start.x;
@@ -203,12 +263,12 @@ void readinput(char *filename){
         getline(inputFile, line);
     }
 }
-void drawLineDDA(Coordinate start, Coordinate end, bool* buffer )
+void drawLineDDA(vmml::vector<3, float> start, vmml::vector<3, float> end, bool* buffer )
 {
     // Coordinate pixels[] = {start, end};
     //First figure out the direction
-    int dx = -(start.x - end.x);
-    int dy = -(start.y - end.y);
+    int dx = -(start.x() - end.x());
+    int dy = -(start.y() - end.y());
     float m = (float)dy / dx;
     float j = 0.0;
     float i = 0.0;
@@ -217,38 +277,38 @@ void drawLineDDA(Coordinate start, Coordinate end, bool* buffer )
     { //Shallow, calculating Y
         if (m < 0)
         {
-            if (start.y < end.y)
+            if (start.y() < end.y())
             {
-                int tempx = start.x;
-                int tempy = start.y;
-                start.x = end.x;
-                start.y = end.y;
-                end.x = tempx;
-                end.y = tempy;
+                int tempx = start.x();
+                int tempy = start.y();
+                start.x() = end.x();
+                start.y() = end.y();
+                end.x() = tempx;
+                end.y() = tempy;
             }
-            for (int in = start.x; in > end.x; in--)
+            for (int in = start.x(); in > end.x(); in--)
             {
-                j = (in - start.x) * m + start.y;
-                //draw_pix(in, (int)j);
+                j = (in - start.x()) * m + start.y();
+                draw_pix(in, (int)j);
                 //Coordinate point(in,(int)j);
                 buffer[in * grid_width + (int)j]=true;
             }
         }
         else if (m == 0 || dy == 0)
         {
-            if (start.x > end.y)
+            if (start.x() > end.y())
             {
-                int tempx = start.x;
-                int tempy = start.y;
-                start.x = end.x;
-                start.y = end.y;
-                end.x = tempx;
-                end.y = tempy;
+                int tempx = start.x();
+                int tempy = start.y();
+                start.x() = end.x();
+                start.y() = end.y();
+                end.x() = tempx;
+                end.y() = tempy;
             }
-            for (int inn = start.x; inn < end.x; inn++)
+            for (int inn = start.x(); inn < end.x(); inn++)
             {
                 //j = (i-start.x)*m + start.y;
-                //draw_pix(inn, end.y);
+                draw_pix(inn, end.y());
                 //Coordinate point(inn,end.y);
                 //vertice.push_back(point);
                 buffer[inn*grid_width+(int)j]=true;
@@ -256,19 +316,19 @@ void drawLineDDA(Coordinate start, Coordinate end, bool* buffer )
         }
         else
         {
-            if (start.y > end.y)
+            if (start.y() > end.y())
             {
-                int tempx = start.x;
-                int tempy = start.y;
-                start.x = end.x;
-                start.y = end.y;
-                end.x = tempx;
-                end.y = tempy;
+                int tempx = start.x();
+                int tempy = start.y();
+                start.x() = end.x();
+                start.y() = end.y();
+                end.x() = tempx;
+                end.y() = tempy;
             }
-            for (int im = start.x; im < end.x; im++)
+            for (int im = start.x(); im < end.x(); im++)
             {
-                j = (im - start.x) * m + start.y;
-                //draw_pix(im, (int)j);
+                j = (im - start.x()) * m + start.y();
+                draw_pix(im, (int)j);
                 //Coordinate point(im,(int)j);
                 //vertice.push_back(point);
                 buffer[im* grid_width+(int)j]=true;
@@ -280,19 +340,19 @@ void drawLineDDA(Coordinate start, Coordinate end, bool* buffer )
         m = (float)dx / dy;
         if (m < 0)
         {
-            if (start.y < end.y)
+            if (start.y() < end.y())
             {
-                int tempx = start.x;
-                int tempy = start.y;
-                start.x = end.x;
-                start.y = end.y;
-                end.x = tempx;
-                end.y = tempy;
+                int tempx = start.x();
+                int tempy = start.y();
+                start.x() = end.x();
+                start.y() = end.y();
+                end.x() = tempx;
+                end.y() = tempy;
             }
-            for (int jn = start.y; jn >= end.y; jn--)
+            for (int jn = start.y(); jn >= end.y(); jn--)
             {
-                i = start.x + (jn - start.y) * m;
-                //draw_pix((int)i, jn);
+                i = start.x() + (jn - start.y()) * m;
+                draw_pix((int)i, jn);
                 //Coordinate point(i,(int)jn);
                 //vertice.push_back(point); 
                 buffer[(int)i*grid_width+jn]=true;
@@ -300,20 +360,20 @@ void drawLineDDA(Coordinate start, Coordinate end, bool* buffer )
         }
         else
         {
-            if (start.y > end.y){
-                int tempx = start.x;
-                int tempy = start.y;
-                start.x = end.x;
-                start.y = end.y;
-                end.x = tempx;
-                end.y = tempy;
+            if (start.y() > end.y()){
+                int tempx = start.x();
+                int tempy = start.y();
+                start.x() = end.x();
+                start.y() = end.y();
+                end.x() = tempx;
+                end.y() = tempy;
             }
-            for (int jm = start.y; jm < end.y; jm++)
+            for (int jm = start.y(); jm < end.y(); jm++)
             {
-                i = start.x + (jm - start.y) * m;
-                //draw_pix((int)i, jm);
+                int ii = (int)(start.x() + (jm - start.y()) * m);
+                draw_pix(ii, jm);
                 //Coordinate point((int)i, jm);
-                buffer[(int)i*grid_width+jm]=true;
+                buffer[ii*grid_width + jm] = true;
                 //vertice.push_back(point); 
             }
         }
@@ -322,7 +382,6 @@ void drawLineDDA(Coordinate start, Coordinate end, bool* buffer )
 
 void drawLineBresenham(Coordinate start, Coordinate end)
 {
-    
     if (start.y > end.y)
     {
         swapCor(start, end);
@@ -395,24 +454,81 @@ void drawLineBresenham(Coordinate start, Coordinate end)
         }
     }
 }
+OutCode computeoutbound(vmml::vector<3, float> point){
+    OutCode code;
+    code = INSIDE;
+    if (point.x() < 0)           // to the left of clip window
+		code |= LEFT;
+	else if (point.x() > grid_width)      // to the right of clip window
+		code |= RIGHT;
+	if (point.y() < 0)           // below the clip window
+		code |= BOTTOM;
+	else if (point.y() > grid_height)      // above the clip window
+		code |= TOP;
+	return code;
+}
+ vmml::vector<3, float> ComputeIntersection(vmml::vector<3, float> a, vmml::vector<3, float> b){
+    OutCode one = computeoutbound(a);
+    OutCode two = computeoutbound(b);
+    bool accept = false;
+    if(!(one|two)){
+        accept = true;
+    }else if(one & two){
+        ;
+    }else{
+        double x,y;
+        OutCode outcodeOut = one ? one : two;
+        if (outcodeOut & TOP) {           // point is above the clip window
+            x = a.x() + (b.x() - a.x()) * (grid_height - a.y()) / (b.y() - a.y());
+            y = grid_height;
+        } else if (outcodeOut & BOTTOM) { // point is below the clip window
+            x = a.x() + (b.x() - a.x()) * (0 - a.y()) / (b.y() - a.y());
+            y = 0;
+        } else if (outcodeOut & RIGHT) {  // point is to the right of clip window
+            y = a.y() + (b.y() - a.y()) * (grid_width - a.x()) / (b.x() - a.x());
+            x = grid_width;
+        } else if (outcodeOut & LEFT) {   // point is to the left of clip window
+            y = a.y() + (b.y() - a.y()) * (0 - a.x()) / (b.x() - a.x());
+            x = 0;
+        }
+       return vmml::vector<3, float>(x, y, 1);
+    }
+}
 
+void clipping(Polygon polygon){
+    for(int i=0; i < polygon.vertices.size(); i++){
+        vmml::vector<3, float> currentVert = polygon.vertices[i] + polygon.position;
+        vmml::vector<3, float> prevVert = polygon.vertices[(i+polygon.vertices.size()-1)%polygon.vertices.size()];
+        vmml::vector<3, float> intersect = ComputeIntersection(prevVert,currentVert);
+
+        if((computeoutbound(currentVert)) == INSIDE){
+            if((computeoutbound(prevVert)) != INSIDE){
+                polygon.vertices.push_back(intersect);
+            }
+
+        }else if((computeoutbound(prevVert)) == INSIDE){
+            polygon.vertices.push_back(intersect);
+        } 
+    }
+}   
 void rasterization(bool* buffer)
 {
-    for(int i=0;i<grid_width;i++){ //row num
-       for(int j=0;j<grid_height;j++){ // col num
-           if(buffer[i*grid_width+j] == true){
-               draw_pix(i, (int)j);
-               int numtrue = 0;
-               for(int k=j; k<grid_width; k++){
-                   if(buffer[i*grid_width+j] == true){
-                       numtrue +=1;
-                       draw_pix(i, (int)k);
-                   }
-               }
-           }
+    bool toggle = false;
+    for(int i=0;i<grid_height;i++){ //row num
+    toggle = false;
+       for(int j=0;j<grid_width;j++){ // col num
+       int numtrue = 0;
+       if(buffer[i*grid_width+j]==true){
+           toggle = (!toggle);
+       }
+       if(toggle){
+           draw_pix(i, j);
+       }
        }
     }
 }
+
+
 //this is where we render the screen
 void display()
 {
@@ -432,45 +548,28 @@ void display()
     */
     //Testing drawing a triangle with user input
 
-    int countVertex = 0;
-    Coordinate start = {10, 10};
-    Coordinate mid = {30, 80};
-    Coordinate end = {90, 20};
-    countVertex = 3;
-    std:: vector <Coordinate> vertices;
+    // int countVertex = 0;
+    // Coordinate start = {10, 10};
+    // Coordinate mid = {30, 80};
+    // Coordinate end = {90, 20};
+    // countVertex = 3;
+    // std:: vector <Coordinate> vertices;
     
     // vertices.push_back(start);
     // vertices.push_back(mid);
     // vertices.push_back(end);
-    //Polygon poly(vertices);
-    bool buffer[grid_width * grid_height];
-    for(int i = 0; i < grid_width; i++){
-       for(int j=0; j < grid_height; j++){
-           (buffer[i*grid_width + j]) = false;
-       }
-    }
-    drawLineDDA(start, mid, buffer);
-    drawLineDDA(mid, end, buffer);
-    drawLineDDA(start, end, buffer);
-    Coordinate windowSize(win_width,win_height);
-    //bordertoBuffer(vertices,&buffer);
-    rasterization(buffer);
+    // Polygon triangle(vertices);
+    // bool buffer[grid_width * grid_height];
     // for(int i = 0; i < grid_width; i++){
     //    for(int j=0; j < grid_height; j++){
-    //        //printf(buffer[i*grid_width+j]);
+    //        (buffer[i*grid_width + j]) = false;
     //    }
     // }
-    //PolygonBorderPixels polyone(border.size, border);
 
-    // for(int i = 0; i< border.size; i++)
-    // {
-
-    //     //cout << border[i].x << " and " << border[i].y << endl;
-    // }
-
-    //draw_pix(50,30);
-    // drawLineDDA(one,two);
-    //drawLineDDA(start,mid);
+    //  drawLineDDA(start, mid, buffer);
+    //  drawLineDDA(mid, end, buffer);
+    //  drawLineDDA(start, end, buffer);
+    rasterization(buffer);
     //blits the current opengl framebuffer on the screen
     glutSwapBuffers();
     //checks for opengl errors
