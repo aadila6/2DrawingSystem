@@ -103,10 +103,6 @@ struct Polygon{
                 vmml::vector<3, float>(vert[i].x,vert[i].y,1));
         }
         position = {xtotal/vert.size(),ytotal/vert.size(),1};
-        // for (int m = 0; m < vert.size(); m++){
-        //     vertices[m] -= position;
-        //     //std::cout << vertices[m] << std::endl;
-        // }
     }
     
 };
@@ -154,8 +150,15 @@ int main(int argc, char **argv)
     float translationX, translationY , sFactor;
     grid_width = 100;
     grid_height = 100;
+    win_height = grid_height * pixel_size;
+    win_width = grid_width * pixel_size;
     buffer = new bool[grid_height* grid_width];
-    readinput("testFile.txt", polygonList);
+    for(int i = 0; i < grid_width; i++){
+       for(int j=0; j < grid_height; j++){
+           (buffer[i*grid_width + j]) = false;
+       }
+    }
+    readinput("testScene.txt", polygonList);
     // std::cout << "Please enter width of window: " ;
     // std::cin>> grid_width;
     // std::cout << "Please enter height of window: ";
@@ -250,36 +253,6 @@ void readinput(char *filename, std::vector<Polygon> &polygons){
         getline(inputFile, line);
         }
         inputFile.close();
-    // std::ifstream filename;
-    // filename.open("testFile.txt");
-    // if(filename.is_open()){
-    // }else{
-    //     std::cout<<"Cannot readfile \n";
-    //     return;
-    // }
-    // std::string readline;
-    // int numpoly;
-    // int numver;
-    // getline(filename, readline);
-    // numpoly=std::stoi(readline);
-    // int a = 0;
-    // std::vector <Coordinate> vertices;
-    // while(a<numpoly){
-    //     while(getline(filename.readline) && readline ==""){
-    //         continue;
-    //     }
-    //     numver = std::stoi(readline);
-    //     int b = 0;
-    //     while(b<numver){
-    //         if(getline(filename,readline, ' ')){
-
-
-    //         }
-    //         getline(filename.readline);
-    //         b++;
-    //     }
-    //     a++;
-    // }
     }
 void drawLineDDA(vmml::vector<3, float> start, vmml::vector<3, float> end, bool* buffer )
 {
@@ -551,21 +524,15 @@ void display()
     glLoadIdentity();
 
     //Testing drawing a triangle with user input
-
-    
-    //bool buffer[grid_width * grid_height];
-    for(int i = 0; i < grid_width; i++){
-       for(int j=0; j < grid_height; j++){
-           (buffer[i*grid_width + j]) = false;
-       }
-    }
+    vmml::vector<3, float> sam1(10,10,1);
+    vmml::vector<3, float> sam2(30,80,1);
+    //drawLineDDA(sam1, sam2,buffer);
     drawLineDDA(polygonList[0].vertices[0], polygonList[0].vertices[1],buffer);
-    drawLineDDA(polygonList[0].vertices[1], polygonList[0].vertices[2],buffer);
-    drawLineDDA(polygonList[0].vertices[2], polygonList[0].vertices[0],buffer);
-    // drawLineDDA(triangle.vertices[0]+triangle.position, triangle.vertices[1]+triangle.position,buffer);
-    // drawLineDDA(triangle.vertices[1]+triangle.position,triangle.vertices[2]+triangle.position,buffer);
-    // drawLineDDA(triangle.vertices[2]+triangle.position,triangle.vertices[0]+triangle.position,buffer);
-    // rasterization(buffer);
+    draw_pix(10, 10);
+    draw_pix(30, 80);
+    //drawLineDDA(polygonList[0].vertices[1],polygonList[0].vertices[2],buffer);
+    //drawLineDDA(polygonList[0].vertices[2],polygonList[0].vertices[0],buffer);
+   // rasterization(buffer);
     //blits the current opengl framebuffer on the screen
     glutSwapBuffers();
     //checks for opengl errors
