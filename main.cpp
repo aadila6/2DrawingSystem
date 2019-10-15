@@ -32,12 +32,7 @@
 #include <iostream>
 #include <vector>
 //other files
-#include "fileIO.cpp"
-#include "rasterize.cpp"
-//#include "PolygonBorderPixels.cpp"
-#include "drawLine.cpp"
-#include "transformation.cpp"
-#include "clipping.cpp"
+
 #include "vector.hpp"
 
 typedef int OutCode;
@@ -147,7 +142,7 @@ int main(int argc, char **argv)
     /** See https://www.opengl.org/resources/libraries/glut/spec3/spec3.html ***/
     float angle;
     int iD;
-    float translationX, translationY , sFactor;
+    float translationX, translationY , sFactor, cliponeX,cliponeY, cliptwoX, cliptwoY;
     grid_width = 100;
     grid_height = 100;
     win_height = grid_height * pixel_size;
@@ -163,23 +158,63 @@ int main(int argc, char **argv)
     // std::cin>> grid_width;
     // std::cout << "Please enter height of window: ";
     // std::cin>> grid_height;
-    // std::cout << "Please enter Polygon ID such as 0,1,2..: ";
-    // std::cin >>iD;
-    // std::cout << "Please enter rotation angle: ";
-    // std::cin>> angle;
-    // std::cout << "Please enter translation in x diretction: ";
-    // std::cin>> translationX;
-    // std::cout << "Please enter translation in y diretction: " ;
-    // std::cin>> translationY;
-    // std::cout << "Please enter scalling factor: " ;
-    // std::cin>> sFactor;
+    // int choice;
+    // while(choice!=6){
+    //     std::cout << "Please select one of the following for your operation: \n";
+    //     std::cout << "1. Rotation \n";  
+    //     std::cout << "2. Translation\n";  
+    //     std::cout << "3. Scalling \n";  
+    //     std::cout << "4. Clipping \n";
+    //     std::cout << "5. Rasterize \n";
+    //     std::cout << "6. Exit \n";
+    //     std::cin>> choice;
+    //     switch (choice) 
+    //     { 
+    //         case 1:  
+    //             std::cout << "Please enter rotation angle: ";
+    //             std::cin>> angle;
+    //             std::cout << "Please enter Polygon ID such as 0,1,2.. for you operation: ";
+    //             std::cin >> iD;
+    //             break; 
+    //         case 2:  
+    //             std::cout << "Please enter translation in x and y direction: such as 10 10 ";
+    //             std::cin>> translationX >> translationY;
+    //             std::cout << "Please enter Polygon ID such as 0,1,2 for you operation: ";
+    //             std::cin >> iD;
+    //             break; 
+    //         case 3:  
+    //             std::cout << "Please enter scalling factor: " ;
+    //             std::cin>> sFactor;
+    //             std::cout << "Please enter Polygon ID such as 0,1,2.. for you operation: ";
+    //             std::cin >> iD;
+    //             break; 
+    //         case 4:  
+    //             std::cout << "Please enter first clipping coordinates such as 10 10: ";
+    //             std::cin>> cliponeX >> cliponeY;
+    //             std::cout << "Please enter the second clipping coordinates such as 10 10: " ;
+    //             std::cin>> cliptwoX >> cliptwoY;
+    //             std::cout << "Please enter Polygon ID such as 0,1,2.. for you operation: ";
+    //             std::cin >> iD;
+    //             break; 
+    //         case 5:  
+    //             std::cout << "Please enter Polygon ID such as 0,1,2.. for you operation: ";
+    //             std::cin >> iD;
+    //             break; 
+    //         case 6:  
+    //             //Terminate the program
+    //             break; 
+    //         default:  
+    //             break;
+    //     }
+    // }
+    
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
     /*initialize variables, allocate memory, create buffers, etc. */
     //create window of size (win_width x win_height
     glutInitWindowSize(win_width, win_height);
     //windown title is "glut demo"
-    glutCreateWindow("glut demo");
+    glutCreateWindow("Two Dimentional Drawing");
    
     /*defined glut callback functions*/
     glutDisplayFunc(display); //rendering calls here
@@ -244,7 +279,7 @@ void readinput(char *filename, std::vector<Polygon> &polygons){
             getline(record, inputX, ' ');
             getline(record, inputY);
             x = std::stof(inputX);
-            y = std::stof(inputX);
+            y = std::stof(inputY);
             Coordinate point(x,y);
             vertices.push_back(point);
         }
@@ -453,7 +488,7 @@ OutCode computeoutbound(vmml::vector<3, float> point){
 		code |= TOP;
 	return code;
 }
- vmml::vector<3, float> ComputeIntersection(vmml::vector<3, float> a, vmml::vector<3, float> b){
+vmml::vector<3, float> ComputeIntersection(vmml::vector<3, float> a, vmml::vector<3, float> b){
     OutCode one = computeoutbound(a);
     OutCode two = computeoutbound(b);
     bool accept = false;
@@ -499,12 +534,12 @@ void clipping(Polygon polygon){
 }   
 void rasterization(bool* buffer)
 {
-    bool toggle = false;
-    for(int i=0;i<grid_height;i++){ //row num
+    bool toggle;
+    for(int j = 0; j < grid_height; j++){ 
     toggle = false;
-       for(int j=0;j<grid_width;j++){ // col num
+       for(int i = 0; i < grid_width; i++){ 
        int numtrue = 0;
-       if(buffer[i*grid_width+j]==true){
+       if(buffer[j*grid_width+i] == true){
            toggle = (!toggle);
        }
        if(toggle){
@@ -513,7 +548,8 @@ void rasterization(bool* buffer)
        }
     }
 }
-
+//Point current_point = inputList[i];
+    //Point prev_point = inputList[(i + inputList.count - 1) % inputList.count];
 
 //this is where we render the screen
 void display()
@@ -524,10 +560,19 @@ void display()
     glLoadIdentity();
 
     //Testing drawing a triangle with user input
-    vmml::vector<3, float> sam1(10,10,1);
-    vmml::vector<3, float> sam2(30,80,1);
+    // vmml::vector<3, float> sam1(10,10,1);
+    // vmml::vector<3, float> sam2(30,80,1);
     //drawLineDDA(sam1, sam2,buffer);
-    drawLineDDA(polygonList[0].vertices[0], polygonList[0].vertices[1],buffer);
+    for(auto p : polygonList){
+        for(int i = 0; i<p.vertices.size();i++){
+            vmml::vector<3, float> cur = p.vertices[i];
+            vmml::vector<3, float> prev = p.vertices[(i + p.vertices.size() - 1) % p.vertices.size()];
+            drawLineDDA(cur, prev, buffer);
+        }
+        //drawLineDDA(p.vertices[p.vertices.size()-1], p.vertices[0],buffer);
+    }
+    rasterization(buffer);
+    //drawLineDDA(polygonList[0].vertices[0], polygonList[0].vertices[1],buffer);
     draw_pix(10, 10);
     draw_pix(30, 80);
     //drawLineDDA(polygonList[0].vertices[1],polygonList[0].vertices[2],buffer);
