@@ -136,6 +136,7 @@ OutCode computeoutbound(vmml::vector<3, float> point);
 void clipping(Polygon polygon);
 void rasterization(bool* buffer);
 bool buffer[grid_width * grid_height];
+
 int main(int argc, char **argv)
 {
     //the number of pixels in the grid
@@ -162,30 +163,30 @@ int main(int argc, char **argv)
     //windown title is "glut demo"
     glutCreateWindow("glut demo");
     
-    int countVertex = 0;
-    Coordinate start = {10, 10};
-    Coordinate mid = {30, 80};
-    Coordinate end = {90, 20};
-    countVertex = 3;
-    std:: vector <Coordinate> vertices;
-    vertices.push_back(start);
-    vertices.push_back(mid);
-    vertices.push_back(end);
-    Polygon triangle(vertices);
-    //readinput("testfile.txt");
-    // bool buffer[grid_width * grid_height];
-    for(int i = 0; i < grid_width; i++){
-       for(int j=0; j < grid_height; j++){
-           (buffer[i*grid_width + j]) = false;
-       }
-    }
-    globalPolygons.polygons.push_back(triangle);
+    //int countVertex = 0;
+    // Coordinate start = {10, 10};
+    // Coordinate mid = {30, 80};
+    // Coordinate end = {90, 20};
+    // countVertex = 3;
+    // std:: vector <Coordinate> vertices;
+    // vertices.push_back(start);
+    // vertices.push_back(mid);
+    // vertices.push_back(end);
+    // Polygon triangle(vertices);
+    // //readinput("testfile.txt");
+    // // bool buffer[grid_width * grid_height];
+    // for(int i = 0; i < grid_width; i++){
+    //    for(int j=0; j < grid_height; j++){
+    //        (buffer[i*grid_width + j]) = false;
+    //    }
+    // }
+    // globalPolygons.polygons.push_back(triangle);
     //globalPolygons.buffer = buffer;
-    for(int num = 0; num <=triangle.vertices.size();num++){
-        vmml::vector<3, float> currentVert = triangle.vertices[num] + triangle.position;
-        vmml::vector<3, float> prevVert = triangle.vertices[(num+triangle.vertices.size()-1)%triangle.vertices.size()];
-        drawLineDDA(currentVert, prevVert, buffer);
-    }
+    // for(int num = 0; num <=triangle.vertices.size();num++){
+    //     vmml::vector<3, float> currentVert = triangle.vertices[num] + triangle.position;
+    //     vmml::vector<3, float> prevVert = triangle.vertices[(num+triangle.vertices.size()-1)%triangle.vertices.size()];
+    //     drawLineDDA(currentVert, prevVert, buffer);
+    // }
     // drawLineDDA(start, mid, buffer);
     // drawLineDDA(mid, end, buffer);
     // drawLineDDA(start, end, buffer);
@@ -221,7 +222,7 @@ void init()
 void idle()
 {
     //redraw the scene over and over again
-    //glutPostRedisplay();
+    glutPostRedisplay();
 }
 
 void swapCor(Coordinate start, Coordinate end)
@@ -379,80 +380,75 @@ void drawLineDDA(vmml::vector<3, float> start, vmml::vector<3, float> end, bool*
         }
     }
 }
-
-void drawLineBresenham(Coordinate start, Coordinate end)
+//Algorithm from class notes & textbook 
+void drawLineBresenham(Coordinate start, Coordinate end, float* Buffer)
 {
-    if (start.y > end.y)
-    {
-        swapCor(start, end);
-    }
-    int dx = -(start.x - end.x);
-    int dy = -(start.y - end.y);
-    int m = dy / dx;
-    int x = start.x;
-    int y = start.y;
-    //If the case is steep
-
-    if (m > 0 && m < 1)
-    {
-        int p = 2 * dy - dx;
-        while (y <= end.y)
+    float m = (end.y - start.y) / (end.x - start.x);
+    
+    int x,y;
+    if (fabs(m) < 1) {
+        int dx = fabs(end.x - start.x),
+            dy = fabs(end.y - start.y),
+            p = 2 * dy - dx;
+        if (start.x > end.x)
         {
-            if (p > 0)
+            x = end.x;
+            y = end.y;
+            end.x = start.x;
+        }else{
+            x = start.x;
+            y = start.y;
+        }
+        draw_pix(x, y);
+        while (x < end.x)
+        {
+            x++;
+            if (p < 0)
             {
-                x += 1;
-                p = p + 2 * dy - 2 * dx;
-                draw_pix(x, y);
-            }
-            else
-            {
-                x += 0;
                 p = p + 2 * dy;
-                draw_pix(x, y);
-            }
-            y += 1;
-        }
-    }
-    else if (m > 1)
-    { /* WORKS!!!*/
-        int p = 2 * dx - dy;
-        while (y <= end.y)
-        {
-            if (p > 0)
-            {
-                x += 1;
-                p = p + 2 * dx - 2 * dy;
-                draw_pix(x, y);
             }
             else
             {
-                x += 0;
-                p = p + 2 * dx;
-                draw_pix(x, y);
+                y++;
+                p = p + 2 * dy - 2 * dx;
             }
-            y += 1;
+            draw_pix(x, y);
+            Buffer[y*grid_width+x]=true;
         }
-    }
-    else if (m < 0 && m > -1)
-    {
-        int p = 2 * dx - dy;
-        while (y <= end.y)
+    } else if (fabs(m) >= 1) {
+        int dx = fabs(end.x - start.x),
+            dy = fabs(end.y - start.y),
+            p = 2 * dx - dy;
+        if (start.y > end.y)
         {
-            if (p > 0)
-            {
-                x -= 1;
-                p = p + 2 * dx - 2 * dy;
-                draw_pix(x, y);
-            }
-            else
-            {
-                x += 0;
-                p = p + 2 * dx;
-                draw_pix(x, y);
-            }
-            y += 1;
+            x = end.x;
+            y = end.y;
+            end.y = start.y;
         }
-    }
+        else
+        {
+            x = start.x;
+            y = start.y;
+        }
+        while (y < end.y)
+        {
+            y++;
+            if (p < 0)
+            {
+                p = p + (2 * dx);
+            }else{
+                if(m<0){
+                    x--;
+                }else{
+                    x++;
+                }
+        
+                p = p + (2 * dx) - (2 * dy);
+            }
+             draw_pix(x, y);
+             Buffer[y*grid_width+x]=true;
+        }
+     } 
 }
 OutCode computeoutbound(vmml::vector<3, float> point){
     OutCode code;
@@ -538,38 +534,37 @@ void display()
     glLoadIdentity();
 
     //draws every other pixel on the screen
-    /* 
-    for (int j = 0; j < grid_height; j+=2){
-        for (int i = 0; i < grid_width; i+=2){
-            //this is the only "rendering call you should make in project 1"
-            draw_pix(i,j);
-        }
-    }
-    */
+    
+    // for (int j = 0; j < grid_height; j+=2){
+    //     for (int i = 0; i < grid_width; i+=2){
+    //         //this is the only "rendering call you should make in project 1"
+    //         draw_pix(i,j);
+    //     }
+    // }
+    
     //Testing drawing a triangle with user input
 
-    // int countVertex = 0;
-    // Coordinate start = {10, 10};
-    // Coordinate mid = {30, 80};
-    // Coordinate end = {90, 20};
-    // countVertex = 3;
-    // std:: vector <Coordinate> vertices;
+    int countVertex = 0;
+    Coordinate start = {10, 10};
+    Coordinate mid = {30, 80};
+    Coordinate end = {90, 20};
+    countVertex = 3;
+    std:: vector <Coordinate> vertices;
     
-    // vertices.push_back(start);
-    // vertices.push_back(mid);
-    // vertices.push_back(end);
-    // Polygon triangle(vertices);
-    // bool buffer[grid_width * grid_height];
-    // for(int i = 0; i < grid_width; i++){
-    //    for(int j=0; j < grid_height; j++){
-    //        (buffer[i*grid_width + j]) = false;
-    //    }
-    // }
-
-    //  drawLineDDA(start, mid, buffer);
-    //  drawLineDDA(mid, end, buffer);
-    //  drawLineDDA(start, end, buffer);
-    rasterization(buffer);
+    vertices.push_back(start);
+    vertices.push_back(mid);
+    vertices.push_back(end);
+    Polygon triangle(vertices);
+    bool buffer[grid_width * grid_height];
+    for(int i = 0; i < grid_width; i++){
+       for(int j=0; j < grid_height; j++){
+           (buffer[i*grid_width + j]) = false;
+       }
+    }
+     drawLineBresenham(triangle.vertices[0]+triangle.position, triangle.vertices[1]+triangle.position,buffer);
+     drawLineBresenham(triangle.vertices[1]+triangle.position,triangle.vertices[2]+triangle.position,buffer);
+     drawLineBresenham(triangle.vertices[2]+triangle.position,triangle.vertices[0]+triangle.position,buffer);
+    //rasterization(buffer);
     //blits the current opengl framebuffer on the screen
     glutSwapBuffers();
     //checks for opengl errors
