@@ -34,6 +34,7 @@
 //other files
 
 #include "vector.hpp"
+#include "matrix.hpp"
 
 typedef int OutCode;
 constexpr int INSIDE = 0; // 0000
@@ -81,12 +82,16 @@ struct Polygon{
     //But position vector is the centroid from the viewPort
     int count;
     vmml::vector<3, float> position;
+    float angle;
+    float scale;
     std::vector<vmml::vector<3, float>> vertices;
     Polygon(std::vector<vmml::vector<3, float>> vertices, 
             vmml::vector<3, float> pos){
         position = pos;
         this->vertices = vertices;
         count = vertices.size();
+        angle = 0.0;
+        scale = 1.0;
     }
     Polygon(std::vector <Coordinate> vert){
         float xtotal,ytotal;
@@ -97,9 +102,14 @@ struct Polygon{
             vertices.push_back(
                 vmml::vector<3, float>(vert[i].x,vert[i].y,1));
         }
+        for (int i = 0; i < vert.size(); i++){
+            vertices[i] -= position;
+            //std::cout << vertices[i] << std::endl;
+        }
         position = {xtotal/vert.size(),ytotal/vert.size(),1};
+        angle = 0.0;
+        scale = 1.0;
     }
-    
 };
 
 struct PolygonBorderPixels{
@@ -519,7 +529,7 @@ vmml::vector<3, float> ComputeIntersection(vmml::vector<3, float> a, vmml::vecto
 void clipping(Polygon polygon){
     for(int i=0; i < polygon.vertices.size(); i++){
         vmml::vector<3, float> currentVert = polygon.vertices[i] + polygon.position;
-        vmml::vector<3, float> prevVert = polygon.vertices[(i+polygon.vertices.size()-1)%polygon.vertices.size()];
+        vmml::vector<3, float> prevVert = polygon.vertices[(i+polygon.vertices.size()-1)%polygon.vertices.size()]+polygon.position;
         vmml::vector<3, float> intersect = ComputeIntersection(prevVert,currentVert);
 
         if((computeoutbound(currentVert)) == INSIDE){
@@ -531,7 +541,8 @@ void clipping(Polygon polygon){
             polygon.vertices.push_back(intersect);
         } 
     }
-}   
+}
+   
 void rasterization(bool* buffer)
 {
     bool toggle;
@@ -544,8 +555,42 @@ void rasterization(bool* buffer)
        }
        if(toggle){
            draw_pix(i, j);
+        }
        }
-       }
+    }
+    
+}
+void translation(Coordinate transl, Polygon &poly){
+    
+        poly.position.x += transl.x; 
+        poly.position.y += transl.y; 
+}
+void rotation(float angle, Polygon &poly){
+    poly.angle = angle;
+}
+void scaling(float scal, Polygon &poly){
+    poly.scale = scal;
+}
+void applyTransform(Polygon polygon){
+    vmml::matrix<3,3> transl_M;
+    vmml::matrix<3,3> rotate_M;
+    vmml::matrix<3,3> scale_M;
+    transl_M(0,0) = 1.0f;
+    transl_M(1,1) = 1.0f;
+    transl_M(2,2) = 1.0f;
+    transl_M(0,2) = polygon.position.x;
+    transl_M(1,2) = polygon.position.y;
+    rotate_M(0,0) = cos(polygon.angle);
+    rotate_M(0,1) = -sin(polygon.angle);
+    rotate_M(1,0) = sin(polygon.angle);
+    rotate_M(1,1) = cos(polygon.angle);
+    rotate_M(2,2) = 1.0f;
+    scale_M(0,0) = polygon.scale;
+    scale_M(1,1) = polygon.scale;
+    scale_M(2,2) = 1;
+    vmml::matrix<3,3> changes = transl_M*scale_M*rotate_M;
+    for(int i = 0; i< polygon.vertices.size()){
+        polygon.vertices[i] = changes * polygon.vertices[i];
     }
 }
 //Point current_point = inputList[i];
@@ -559,25 +604,20 @@ void display()
     //clears the opengl Modelview transformation matrix
     glLoadIdentity();
 
-    //Testing drawing a triangle with user input
-    // vmml::vector<3, float> sam1(10,10,1);
-    // vmml::vector<3, float> sam2(30,80,1);
-    //drawLineDDA(sam1, sam2,buffer);
+
+
     for(auto p : polygonList){
         for(int i = 0; i<p.vertices.size();i++){
-            vmml::vector<3, float> cur = p.vertices[i];
-            vmml::vector<3, float> prev = p.vertices[(i + p.vertices.size() - 1) % p.vertices.size()];
+            vmml::vector<3, float> cur = p.vertices[i]+ p.position;
+            vmml::vector<3, float> prev = p.vertices[(i + p.vertices.size() - 1) % p.vertices.size()]+p.position;
             drawLineDDA(cur, prev, buffer);
         }
         //drawLineDDA(p.vertices[p.vertices.size()-1], p.vertices[0],buffer);
     }
-    rasterization(buffer);
-    //drawLineDDA(polygonList[0].vertices[0], polygonList[0].vertices[1],buffer);
-    draw_pix(10, 10);
-    draw_pix(30, 80);
-    //drawLineDDA(polygonList[0].vertices[1],polygonList[0].vertices[2],buffer);
-    //drawLineDDA(polygonList[0].vertices[2],polygonList[0].vertices[0],buffer);
-   // rasterization(buffer);
+    
+    //rasterization(buffer);
+
+
     //blits the current opengl framebuffer on the screen
     glutSwapBuffers();
     //checks for opengl errors
