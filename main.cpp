@@ -48,8 +48,8 @@ constexpr int BOTTOM = 4; // 0100
 constexpr int TOP = 8;    // 1000
 /****set in main()****/
 //the number of pixels in the grid
-constexpr int grid_width = 100;
-constexpr int grid_height = 100;
+int grid_width;
+int grid_height;
 
 //the size of pixels sets the inital window height and width
 //don't make the pixels too large or the screen size will be larger than
@@ -103,19 +103,14 @@ struct Polygon{
                 vmml::vector<3, float>(vert[i].x,vert[i].y,1));
         }
         position = {xtotal/vert.size(),ytotal/vert.size(),1};
-        for (int i = 0; i < vert.size(); i++){
-            vertices[i] -= position;
-            std::cout << vertices[i] << std::endl;
-        }
+        // for (int m = 0; m < vert.size(); m++){
+        //     vertices[m] -= position;
+        //     //std::cout << vertices[m] << std::endl;
+        // }
     }
     
 };
-struct viewDisplay{
-    std::vector<Polygon> polygons;
-    
 
-};
-viewDisplay globalPolygons; 
 struct PolygonBorderPixels{
         int count;
         std::vector<Coordinate> Coordinates;
@@ -128,15 +123,15 @@ struct PolygonBorderPixels{
             Coordinates = input;
         }
     };
-void readinput(char *filename);
+void readinput(char *filename, std::vector<Polygon> &polygons);
 void drawLineDDA(vmml::vector<3, float> start, vmml::vector<3, float> end, bool* buffer);
 void drawLineBresenham(Coordinate start, Coordinate end, bool* buffer );
 vmml::vector<3, float> ComputeIntersection(vmml::vector<3, float> a, vmml::vector<3, float> b);
 OutCode computeoutbound(vmml::vector<3, float> point);
 void clipping(Polygon polygon);
 void rasterization(bool* buffer);
-bool buffer[grid_width * grid_height];
-
+bool* buffer;
+std::vector<Polygon> polygonList;
 int main(int argc, char **argv)
 {
     //the number of pixels in the grid
@@ -154,7 +149,27 @@ int main(int argc, char **argv)
 
     /*Set up glut functions*/
     /** See https://www.opengl.org/resources/libraries/glut/spec3/spec3.html ***/
-
+    float angle;
+    int iD;
+    float translationX, translationY , sFactor;
+    grid_width = 100;
+    grid_height = 100;
+    buffer = new bool[grid_height* grid_width];
+    readinput("testFile.txt", polygonList);
+    // std::cout << "Please enter width of window: " ;
+    // std::cin>> grid_width;
+    // std::cout << "Please enter height of window: ";
+    // std::cin>> grid_height;
+    // std::cout << "Please enter Polygon ID such as 0,1,2..: ";
+    // std::cin >>iD;
+    // std::cout << "Please enter rotation angle: ";
+    // std::cin>> angle;
+    // std::cout << "Please enter translation in x diretction: ";
+    // std::cin>> translationX;
+    // std::cout << "Please enter translation in y diretction: " ;
+    // std::cin>> translationY;
+    // std::cout << "Please enter scalling factor: " ;
+    // std::cin>> sFactor;
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
     /*initialize variables, allocate memory, create buffers, etc. */
@@ -162,38 +177,7 @@ int main(int argc, char **argv)
     glutInitWindowSize(win_width, win_height);
     //windown title is "glut demo"
     glutCreateWindow("glut demo");
-    
-    //int countVertex = 0;
-    // Coordinate start = {10, 10};
-    // Coordinate mid = {30, 80};
-    // Coordinate end = {90, 20};
-    // countVertex = 3;
-    // std:: vector <Coordinate> vertices;
-    // vertices.push_back(start);
-    // vertices.push_back(mid);
-    // vertices.push_back(end);
-    // Polygon triangle(vertices);
-    // //readinput("testfile.txt");
-    // // bool buffer[grid_width * grid_height];
-    // for(int i = 0; i < grid_width; i++){
-    //    for(int j=0; j < grid_height; j++){
-    //        (buffer[i*grid_width + j]) = false;
-    //    }
-    // }
-    // globalPolygons.polygons.push_back(triangle);
-    //globalPolygons.buffer = buffer;
-    // for(int num = 0; num <=triangle.vertices.size();num++){
-    //     vmml::vector<3, float> currentVert = triangle.vertices[num] + triangle.position;
-    //     vmml::vector<3, float> prevVert = triangle.vertices[(num+triangle.vertices.size()-1)%triangle.vertices.size()];
-    //     drawLineDDA(currentVert, prevVert, buffer);
-    // }
-    // drawLineDDA(start, mid, buffer);
-    // drawLineDDA(mid, end, buffer);
-    // drawLineDDA(start, end, buffer);
-    // rasterization(buffer);
-
-    
-
+   
     /*defined glut callback functions*/
     glutDisplayFunc(display); //rendering calls here
     glutReshapeFunc(reshape); //update GL on window size change
@@ -234,36 +218,69 @@ void swapCor(Coordinate start, Coordinate end)
     end.x = tempx;
     end.y = tempy;
 }
-void readinput(char *filename){
-    std::vector<PolygonBorderPixels> PolygonBorderPixelsList;
-    std :: ifstream inputFile(filename);
-    std :: string line;
+void readinput(char *filename, std::vector<Polygon> &polygons){
+    
+    std::ifstream inputFile;
+    inputFile.open(filename);
+    std::string line;
     int count;
     inputFile >> count;
     getline(inputFile, line);
     getline(inputFile, line);
+    // std::cout<<line;
     for (int i=0; i< count; i++){
         int num;
-        std::vector<Coordinate> coorList;
+        std::vector <Coordinate> vertices;
         inputFile >> num;
         getline(inputFile, line);
-        for (int j=0; i<num; j++){
+        for (int j=0; j<num; j++){
             float x, y;
             std :: string inputX, inputY;
             getline(inputFile, line);
             std :: istringstream record(line);
             getline(record, inputX, ' ');
             getline(record, inputY);
-            x = stof(inputX);
-            y = stof(inputX);
+            x = std::stof(inputX);
+            y = std::stof(inputX);
             Coordinate point(x,y);
-            coorList.push_back(point);
+            vertices.push_back(point);
         }
-        PolygonBorderPixels PolygonBorderPixels(num,coorList);
-        PolygonBorderPixelsList.push_back(PolygonBorderPixels);
+        Polygon polygon(vertices);
+        polygons.push_back(polygon);
         getline(inputFile, line);
+        }
+        inputFile.close();
+    // std::ifstream filename;
+    // filename.open("testFile.txt");
+    // if(filename.is_open()){
+    // }else{
+    //     std::cout<<"Cannot readfile \n";
+    //     return;
+    // }
+    // std::string readline;
+    // int numpoly;
+    // int numver;
+    // getline(filename, readline);
+    // numpoly=std::stoi(readline);
+    // int a = 0;
+    // std::vector <Coordinate> vertices;
+    // while(a<numpoly){
+    //     while(getline(filename.readline) && readline ==""){
+    //         continue;
+    //     }
+    //     numver = std::stoi(readline);
+    //     int b = 0;
+    //     while(b<numver){
+    //         if(getline(filename,readline, ' ')){
+
+
+    //         }
+    //         getline(filename.readline);
+    //         b++;
+    //     }
+    //     a++;
+    // }
     }
-}
 void drawLineDDA(vmml::vector<3, float> start, vmml::vector<3, float> end, bool* buffer )
 {
     // Coordinate pixels[] = {start, end};
@@ -381,26 +398,26 @@ void drawLineDDA(vmml::vector<3, float> start, vmml::vector<3, float> end, bool*
     }
 }
 //Algorithm from class notes & textbook 
-void drawLineBresenham(Coordinate start, Coordinate end, float* Buffer)
+void drawLineBresenham(vmml::vector<3, float> start, vmml::vector<3, float> end, bool* buffer)
 {
-    float m = (end.y - start.y) / (end.x - start.x);
+    float m = (end.y() - start.y()) / (end.x() - start.x());
     
     int x,y;
     if (fabs(m) < 1) {
-        int dx = fabs(end.x - start.x),
-            dy = fabs(end.y - start.y),
+        int dx = fabs(end.x() - start.x()),
+            dy = fabs(end.y() - start.y()),
             p = 2 * dy - dx;
-        if (start.x > end.x)
+        if (start.x() > end.x())
         {
-            x = end.x;
-            y = end.y;
-            end.x = start.x;
+            x = end.x();
+            y = end.y();
+            end.x() = start.x();
         }else{
-            x = start.x;
-            y = start.y;
+            x = start.x();
+            y = start.y();
         }
         draw_pix(x, y);
-        while (x < end.x)
+        while (x < end.x())
         {
             x++;
             if (p < 0)
@@ -413,24 +430,24 @@ void drawLineBresenham(Coordinate start, Coordinate end, float* Buffer)
                 p = p + 2 * dy - 2 * dx;
             }
             draw_pix(x, y);
-            Buffer[y*grid_width+x]=true;
+            buffer[y*grid_width+x]=true;
         }
     } else if (fabs(m) >= 1) {
-        int dx = fabs(end.x - start.x),
-            dy = fabs(end.y - start.y),
+        int dx = fabs(end.x() - start.x()),
+            dy = fabs(end.y() - start.y()),
             p = 2 * dx - dy;
-        if (start.y > end.y)
+        if (start.y() > end.y())
         {
-            x = end.x;
-            y = end.y;
-            end.y = start.y;
+            x = end.x();
+            y = end.y();
+            end.y() = start.y();
         }
         else
         {
-            x = start.x;
-            y = start.y;
+            x = start.x();
+            y = start.y();
         }
-        while (y < end.y)
+        while (y < end.y())
         {
             y++;
             if (p < 0)
@@ -446,7 +463,7 @@ void drawLineBresenham(Coordinate start, Coordinate end, float* Buffer)
                 p = p + (2 * dx) - (2 * dy);
             }
              draw_pix(x, y);
-             Buffer[y*grid_width+x]=true;
+             buffer[y*grid_width+x]=true;
         }
      } 
 }
@@ -533,38 +550,22 @@ void display()
     //clears the opengl Modelview transformation matrix
     glLoadIdentity();
 
-    //draws every other pixel on the screen
-    
-    // for (int j = 0; j < grid_height; j+=2){
-    //     for (int i = 0; i < grid_width; i+=2){
-    //         //this is the only "rendering call you should make in project 1"
-    //         draw_pix(i,j);
-    //     }
-    // }
-    
     //Testing drawing a triangle with user input
 
-    int countVertex = 0;
-    Coordinate start = {10, 10};
-    Coordinate mid = {30, 80};
-    Coordinate end = {90, 20};
-    countVertex = 3;
-    std:: vector <Coordinate> vertices;
     
-    vertices.push_back(start);
-    vertices.push_back(mid);
-    vertices.push_back(end);
-    Polygon triangle(vertices);
-    bool buffer[grid_width * grid_height];
+    //bool buffer[grid_width * grid_height];
     for(int i = 0; i < grid_width; i++){
        for(int j=0; j < grid_height; j++){
            (buffer[i*grid_width + j]) = false;
        }
     }
-     drawLineBresenham(triangle.vertices[0]+triangle.position, triangle.vertices[1]+triangle.position,buffer);
-     drawLineBresenham(triangle.vertices[1]+triangle.position,triangle.vertices[2]+triangle.position,buffer);
-     drawLineBresenham(triangle.vertices[2]+triangle.position,triangle.vertices[0]+triangle.position,buffer);
-    //rasterization(buffer);
+    drawLineDDA(polygonList[0].vertices[0], polygonList[0].vertices[1],buffer);
+    drawLineDDA(polygonList[0].vertices[1], polygonList[0].vertices[2],buffer);
+    drawLineDDA(polygonList[0].vertices[2], polygonList[0].vertices[0],buffer);
+    // drawLineDDA(triangle.vertices[0]+triangle.position, triangle.vertices[1]+triangle.position,buffer);
+    // drawLineDDA(triangle.vertices[1]+triangle.position,triangle.vertices[2]+triangle.position,buffer);
+    // drawLineDDA(triangle.vertices[2]+triangle.position,triangle.vertices[0]+triangle.position,buffer);
+    // rasterization(buffer);
     //blits the current opengl framebuffer on the screen
     glutSwapBuffers();
     //checks for opengl errors
