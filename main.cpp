@@ -139,6 +139,7 @@ OutCode computeoutbound(vmml::vector<3, float> point);
 void clipping(Polygon polygon);
 void rasterization(bool* buffer);
 bool* buffer;
+bool* loadBuffer;
 std::vector<Polygon> polygonList;
 void translation(Coordinate transl, Polygon &poly);
 void rotation(float angle, Polygon &poly);
@@ -174,14 +175,15 @@ int main(int argc, char **argv)
            (buffer[i*grid_width + j]) = false;
        }
     }
+
     readinput("testFile.txt", polygonList);
     translation(Coordinate(10,10),polygonList[0]);
     //rotation(90.0f*(3.14159265359/180),polygonList[0]);
     //scaling(2.0f,polygonList[0]);
-    // for(int n = 0; n < polygonList.size(); n++){
-    //     applyTransform(polygonList[n]);
-    // }
-    applyTransform(polygonList[0]);
+    for(int n = 0; n < polygonList.size(); n++){
+        applyTransform(polygonList[n]);
+    }
+    //applyTransform(polygonList[0]);
 
 
     // std::cout << "Please enter width of window: " ;
@@ -434,6 +436,41 @@ void drawLineDDA(vmml::vector<3, float> start, vmml::vector<3, float> end, bool*
         }
     }
 }
+
+void drawLineDDAR(vmml::vector<3, float> a, vmml::vector<3, float> b, bool* buffer ){
+    int len = 0;
+    int dx = -(a.x() - b.x());
+    int dy = -(a.y() - b.y());
+    //float m = (float)dy / dx;
+    float x = 0.0f, y = 0.0f;
+    if (abs(dx) > abs(dy)){
+        len = abs(dx);
+    }else{
+        len = abs(dy);
+    }
+    dx = (dx)/len;
+    dy = (dy)/len;
+    if(dx>0){
+        x = a.x() + 0.5;
+    }else{
+        x = a.x() - 0.5;
+    }
+    if(dy>0){
+        y = a.y() + 0.5;
+    }else{
+        y = a.y()- 0.5;
+    }
+    int i = 1;
+   while(i <= len) {
+      x += dx;
+      y += dy;
+      draw_pix((int)x, (int)y);
+      buffer[(int)y*grid_width + (int)x] = true;
+      i++;
+    }
+}
+
+
 //Algorithm from class notes & textbook 
 void drawLineBresenham(vmml::vector<3, float> start, vmml::vector<3, float> end, bool* buffer)
 {
@@ -586,7 +623,7 @@ void rasterization(bool* buffer)
                 break;
             }
         }
-        for(xend = grid_width -1; xend >= 0; xend++ ){
+        for(xend = grid_width -1; xend >= 0; xend--){
             int index = j*grid_width+xend;
             if(buffer[index] == true){
                 break;
@@ -594,10 +631,10 @@ void rasterization(bool* buffer)
         }
         bool toggle = false;
         bool nextTrue = false;
-        for(int i = xbegin; i <xend; i++){
-            if(i==xend-1){
+        for(int i = xbegin; i <=xend+1; i++){
+            if(i==xend+1){
                 toggle = false;
-                break;
+                //break;
             }else if(xbegin == xend){
                 draw_pix(i, j);
                 break;
@@ -670,7 +707,7 @@ void display()
         for(int i = 0; i<p.vertices.size();i++){
             vmml::vector<3, float> cur = p.vertices[i];
             vmml::vector<3, float> prev = p.vertices[(i + p.vertices.size() - 1) % p.vertices.size()];
-            drawLineDDA(cur, prev, buffer);
+            drawLineBresenham(cur, prev, buffer);
         }
         //drawLineDDA(p.vertices[p.vertices.size()-1], p.vertices[0],buffer);
     }
