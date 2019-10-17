@@ -85,28 +85,35 @@ struct Polygon{
     float angle;
     float scale;
     std::vector<vmml::vector<3, float>> vertices;
-    Polygon(std::vector<vmml::vector<3, float>> vertices, 
-            vmml::vector<3, float> pos){
-        position = pos;
-        this->vertices = vertices;
-        count = vertices.size();
-        angle = 0.0;
-        scale = 1.0;
-    }
-    Polygon(std::vector <Coordinate> vert){
-        float xtotal,ytotal;
+    
+    // Polygon(std::vector<vmml::vector<3, float>> vertices, 
+    //         vmml::vector<3, float> pos){
+    //     position = pos;
+    //     this->vertices = vertices;
+    //     count = vertices.size();
+    //     angle = 0.0;
+    //     scale = 1.0;
+    // }
+
+    Polygon(std::vector<Coordinate> vert)
+    {
+        float xtotal = 0, ytotal = 0;
         count = vert.size();
-        for(int i = 0; i<vert.size(); i++){
-            xtotal +=vert[i].x;
-            ytotal +=vert[i].y;
+        
+        for(int i = 0; i < vert.size(); i++){
+            xtotal += vert[i].x;
+            ytotal += vert[i].y;
             vertices.push_back(
-                vmml::vector<3, float>(vert[i].x,vert[i].y,1));
+                vmml::vector<3, float>(vert[i].x, vert[i].y, 1));
         }
+        
+        position = {xtotal/vert.size(), ytotal/vert.size(), 1};
         for (int i = 0; i < vert.size(); i++){
-            vertices[i] -= position;
             //std::cout << vertices[i] << std::endl;
+            vertices[i] -= position;
+            vertices[i].z() = 1.0f;
         }
-        position = {xtotal/vert.size(),ytotal/vert.size(),1};
+
         angle = 0.0;
         scale = 1.0;
     }
@@ -133,6 +140,10 @@ void clipping(Polygon polygon);
 void rasterization(bool* buffer);
 bool* buffer;
 std::vector<Polygon> polygonList;
+void translation(Coordinate transl, Polygon &poly);
+void rotation(float angle, Polygon &poly);
+void scaling(float scal, Polygon &poly);
+void applyTransform(Polygon &polygon);
 int main(int argc, char **argv)
 {
     //the number of pixels in the grid
@@ -163,7 +174,16 @@ int main(int argc, char **argv)
            (buffer[i*grid_width + j]) = false;
        }
     }
-    readinput("testScene.txt", polygonList);
+    readinput("testFile.txt", polygonList);
+    translation(Coordinate(10,10),polygonList[0]);
+    //rotation(90.0f*(3.14159265359/180),polygonList[0]);
+    //scaling(2.0f,polygonList[0]);
+    // for(int n = 0; n < polygonList.size(); n++){
+    //     applyTransform(polygonList[n]);
+    // }
+    applyTransform(polygonList[0]);
+
+
     // std::cout << "Please enter width of window: " ;
     // std::cin>> grid_width;
     // std::cout << "Please enter height of window: ";
@@ -275,7 +295,6 @@ void readinput(char *filename, std::vector<Polygon> &polygons){
     inputFile >> count;
     getline(inputFile, line);
     getline(inputFile, line);
-    // std::cout<<line;
     for (int i=0; i< count; i++){
         int num;
         std::vector <Coordinate> vertices;
@@ -528,8 +547,8 @@ vmml::vector<3, float> ComputeIntersection(vmml::vector<3, float> a, vmml::vecto
 
 void clipping(Polygon polygon){
     for(int i=0; i < polygon.vertices.size(); i++){
-        vmml::vector<3, float> currentVert = polygon.vertices[i] + polygon.position;
-        vmml::vector<3, float> prevVert = polygon.vertices[(i+polygon.vertices.size()-1)%polygon.vertices.size()]+polygon.position;
+        vmml::vector<3, float> currentVert = polygon.vertices[i];
+        vmml::vector<3, float> prevVert = polygon.vertices[(i+polygon.vertices.size()-1)%polygon.vertices.size()];
         vmml::vector<3, float> intersect = ComputeIntersection(prevVert,currentVert);
 
         if((computeoutbound(currentVert)) == INSIDE){
@@ -545,25 +564,62 @@ void clipping(Polygon polygon){
    
 void rasterization(bool* buffer)
 {
-    bool toggle;
-    for(int j = 0; j < grid_height; j++){ 
-    toggle = false;
-       for(int i = 0; i < grid_width; i++){ 
-       int numtrue = 0;
-       if(buffer[j*grid_width+i] == true){
-           toggle = (!toggle);
-       }
-       if(toggle){
-           draw_pix(i, j);
+    // bool toggle;
+    // for(int j = 0; j < grid_height; j++){ 
+    // toggle = false;
+    //    for(int i = 0; i < grid_width; i++){ 
+    //    int numtrue = 0;
+    //    if(buffer[j*grid_width+i] == true){
+    //        toggle = (!toggle);
+    //    }
+    //    if(toggle){
+    //        draw_pix(i, j);
+    //     }
+    //    }
+    // }
+    //Find first intecet & last. And filling between.
+    for(int j = 0; j<grid_height;j++){
+        int xbegin, xend;
+        for(xbegin = 0; xbegin < grid_width; xbegin++ ){
+            int index = j*grid_width+xbegin;
+            if(buffer[index] == true){
+                break;
+            }
         }
-       }
+        for(xend = grid_width -1; xend >= 0; xend++ ){
+            int index = j*grid_width+xend;
+            if(buffer[index] == true){
+                break;
+            }
+        }
+        bool toggle = false;
+        bool nextTrue = false;
+        for(int i = xbegin; i <xend; i++){
+            if(i==xend-1){
+                toggle = false;
+                break;
+            }else if(xbegin == xend){
+                draw_pix(i, j);
+                break;
+            }
+            if(buffer[j*grid_width+i] == true){
+                if(buffer[j*grid_width+i+1]==true){
+                    nextTrue = true;
+                }else if(!nextTrue){
+                    toggle = (!toggle);
+                }
+            }
+            if(toggle){
+            draw_pix(i, j);
+            }
+        }
     }
     
 }
 void translation(Coordinate transl, Polygon &poly){
     
-        poly.position.x += transl.x; 
-        poly.position.y += transl.y; 
+    poly.position.x() += transl.x; 
+    poly.position.y() += transl.y; 
 }
 void rotation(float angle, Polygon &poly){
     poly.angle = angle;
@@ -571,30 +627,36 @@ void rotation(float angle, Polygon &poly){
 void scaling(float scal, Polygon &poly){
     poly.scale = scal;
 }
-void applyTransform(Polygon polygon){
+void applyTransform(Polygon &polygon){
     vmml::matrix<3,3> transl_M;
     vmml::matrix<3,3> rotate_M;
     vmml::matrix<3,3> scale_M;
     transl_M(0,0) = 1.0f;
+    //transl_M(0,1) = 0.0f;
+    transl_M(0,2) = polygon.position.x();
+    //transl_M(1,0) = 0.0f;
     transl_M(1,1) = 1.0f;
+    transl_M(1,2) = polygon.position.y();
     transl_M(2,2) = 1.0f;
-    transl_M(0,2) = polygon.position.x;
-    transl_M(1,2) = polygon.position.y;
+    //transl_M(2,1) = 0.0f;
+    //transl_M(2,0) = 0.0f;
     rotate_M(0,0) = cos(polygon.angle);
     rotate_M(0,1) = -sin(polygon.angle);
+    //rotate_M(0,2) = 0;
     rotate_M(1,0) = sin(polygon.angle);
     rotate_M(1,1) = cos(polygon.angle);
+    //rotate_M(1,2) = 0;
+    //rotate_M(2,0) = 0;
+    //rotate_M(2,1) = 0;
     rotate_M(2,2) = 1.0f;
     scale_M(0,0) = polygon.scale;
     scale_M(1,1) = polygon.scale;
     scale_M(2,2) = 1;
     vmml::matrix<3,3> changes = transl_M*scale_M*rotate_M;
-    for(int i = 0; i< polygon.vertices.size()){
+    for(int i = 0; i< polygon.vertices.size(); i++){
         polygon.vertices[i] = changes * polygon.vertices[i];
     }
 }
-//Point current_point = inputList[i];
-    //Point prev_point = inputList[(i + inputList.count - 1) % inputList.count];
 
 //this is where we render the screen
 void display()
@@ -604,17 +666,14 @@ void display()
     //clears the opengl Modelview transformation matrix
     glLoadIdentity();
 
-
-
     for(auto p : polygonList){
         for(int i = 0; i<p.vertices.size();i++){
-            vmml::vector<3, float> cur = p.vertices[i]+ p.position;
-            vmml::vector<3, float> prev = p.vertices[(i + p.vertices.size() - 1) % p.vertices.size()]+p.position;
+            vmml::vector<3, float> cur = p.vertices[i];
+            vmml::vector<3, float> prev = p.vertices[(i + p.vertices.size() - 1) % p.vertices.size()];
             drawLineDDA(cur, prev, buffer);
         }
         //drawLineDDA(p.vertices[p.vertices.size()-1], p.vertices[0],buffer);
     }
-    
     //rasterization(buffer);
 
 
