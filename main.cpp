@@ -132,6 +132,7 @@ struct PolygonBorderPixels{
         }
     };
 void readinput(char *filename, std::vector<Polygon> &polygons);
+void writeFile(char *filename, std::vector<Polygon> &polygons);
 void drawLineDDA(vmml::vector<3, float> start, vmml::vector<3, float> end, bool* buffer);
 void drawLineBresenham(Coordinate start, Coordinate end, bool* buffer );
 vmml::vector<3, float> ComputeIntersection(vmml::vector<3, float> a, vmml::vector<3, float> b);
@@ -145,6 +146,8 @@ void translation(Coordinate transl, Polygon &poly);
 void rotation(float angle, Polygon &poly);
 void scaling(float scal, Polygon &poly);
 void applyTransform(Polygon &polygon);
+char lineMode;
+bool rasterswitch;
 int main(int argc, char **argv)
 {
     //the number of pixels in the grid
@@ -157,68 +160,76 @@ int main(int argc, char **argv)
     pixel_size = 5;
 
     /*Window information*/
-    win_height = grid_height * pixel_size;
-    win_width = grid_width * pixel_size;
+    // win_height = grid_height * pixel_size;
+    // win_width = grid_width * pixel_size;
 
     /*Set up glut functions*/
     /** See https://www.opengl.org/resources/libraries/glut/spec3/spec3.html ***/
-    float angle;
-    int iD;
-    float translationX, translationY , sFactor, cliponeX,cliponeY, cliptwoX, cliptwoY;
+    float angle=0.0f;
+    int iD=0;
+    float translationX=0, translationY=0 , sFactor=1, cliponeX=0,cliponeY=0, cliptwoX=0, cliptwoY=0;
     grid_width = 100;
     grid_height = 100;
-    win_height = grid_height * pixel_size;
-    win_width = grid_width * pixel_size;
-    buffer = new bool[grid_height* grid_width];
-    for(int i = 0; i < grid_width; i++){
-       for(int j=0; j < grid_height; j++){
-           (buffer[i*grid_width + j]) = false;
-       }
-    }
+    lineMode = 'd';
+    rasterswitch = false;
 
-    readinput("testFile.txt", polygonList);
-    translation(Coordinate(10,10),polygonList[0]);
-    //rotation(90.0f*(3.14159265359/180),polygonList[0]);
-    //scaling(2.0f,polygonList[0]);
-    for(int n = 0; n < polygonList.size(); n++){
-        applyTransform(polygonList[n]);
-    }
-    //applyTransform(polygonList[0]);
-
-
+    // for(int n = 0; n < polygonList.size(); n++){
+    //     rotation(90.0f*(3.14159265359/180),polygonList[n]);
+    //     applyTransform(polygonList[n]);
+    // }
     // std::cout << "Please enter width of window: " ;
     // std::cin>> grid_width;
     // std::cout << "Please enter height of window: ";
     // std::cin>> grid_height;
-    // int choice;
-    // while(choice!=6){
-    //     std::cout << "Please select one of the following for your operation: \n";
+    win_height = grid_height * pixel_size;
+    win_width = grid_width * pixel_size;
+    buffer = new bool[grid_height* grid_width];
+    loadBuffer = new bool[grid_height* grid_width];
+    for(int i = 0; i < grid_width; i++){
+       for(int j=0; j < grid_height; j++){
+           (buffer[i*grid_width + j]) = false;
+           (loadBuffer[i*grid_width + j]) = false;
+       }
+    }
+    readinput("testScene.txt", polygonList);
+    translation(Coordinate(10,10),polygonList[0]);
+    //rotation(180.0f*(3.14159265359/180),polygonList[0]);
+    scaling(1.0f,polygonList[0]);
+    for(int n = 0; n < polygonList.size(); n++){applyTransform(polygonList[n]);}
+    //writeFile("testScene.txt", polygonList);
+    //     int choice;
+    // // //while(choice!=6){
     //     std::cout << "1. Rotation \n";  
     //     std::cout << "2. Translation\n";  
     //     std::cout << "3. Scalling \n";  
     //     std::cout << "4. Clipping \n";
-    //     std::cout << "5. Rasterize \n";
-    //     std::cout << "6. Exit \n";
+    //     std::cout << "5. Exit \n";
+    //     std::cout << "Please select one of options above for your operation: ";
     //     std::cin>> choice;
+
     //     switch (choice) 
     //     { 
     //         case 1:  
     //             std::cout << "Please enter rotation angle: ";
     //             std::cin>> angle;
     //             std::cout << "Please enter Polygon ID such as 0,1,2.. for you operation: ";
-    //             std::cin >> iD;
-    //             break; 
-    //         case 2:  
+    //             std::cin>> iD;
+    //             break;
+    //         case 2:
     //             std::cout << "Please enter translation in x and y direction: such as 10 10 ";
     //             std::cin>> translationX >> translationY;
     //             std::cout << "Please enter Polygon ID such as 0,1,2 for you operation: ";
-    //             std::cin >> iD;
+    //             std::cin>> iD;
+    //             translation(Coordinate(translationX,translationY),polygonList[iD]);
+    //             for(int n = 0; n < polygonList.size(); n++){applyTransform(polygonList[n]);}
     //             break; 
     //         case 3:  
     //             std::cout << "Please enter scalling factor: " ;
     //             std::cin>> sFactor;
     //             std::cout << "Please enter Polygon ID such as 0,1,2.. for you operation: ";
-    //             std::cin >> iD;
+    //             std::cin>> iD;
+    //             scaling(sFactor,polygonList[iD]);
+    //             for(int n = 0; n < polygonList.size(); n++){applyTransform(polygonList[n]);}
     //             break; 
     //         case 4:  
     //             std::cout << "Please enter first clipping coordinates such as 10 10: ";
@@ -228,18 +239,16 @@ int main(int argc, char **argv)
     //             std::cout << "Please enter Polygon ID such as 0,1,2.. for you operation: ";
     //             std::cin >> iD;
     //             break; 
-    //         case 5:  
-    //             std::cout << "Please enter Polygon ID such as 0,1,2.. for you operation: ";
-    //             std::cin >> iD;
-    //             break; 
-    //         case 6:  
-    //             //Terminate the program
+    //         case 5: 
     //             break; 
     //         default:  
     //             break;
     //     }
-    // }
-    
+    // translation(Coordinate(translationX,translationY),polygonList[iD]);
+    // rotation(angle*(3.14159265359/180),polygonList[iD]);
+    // scaling(1.0f,polygonList[iD]);
+    // for(int n = 0; n < polygonList.size(); n++){applyTransform(polygonList[n]);}
+    //}
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
     /*initialize variables, allocate memory, create buffers, etc. */
@@ -319,7 +328,18 @@ void readinput(char *filename, std::vector<Polygon> &polygons){
         getline(inputFile, line);
         }
         inputFile.close();
+}
+void writeFile(char *filename,std::vector<Polygon> &polygons){
+    std::ofstream outputFile(filename);
+    outputFile << polygons.size() << "\n\n";
+    for (int i = 0; i<polygons.size();i++) {
+        outputFile << polygons[i].count << std::endl;
+        for(int j = 0; j<polygons[i].count;j++) {
+            outputFile << polygons[i].vertices[j].x() << ' ' << polygons[i].vertices[j].y() << std::endl;
+        }
+        outputFile << std::endl;
     }
+}
 void drawLineDDA(vmml::vector<3, float> start, vmml::vector<3, float> end, bool* buffer )
 {
     // Coordinate pixels[] = {start, end};
@@ -334,7 +354,7 @@ void drawLineDDA(vmml::vector<3, float> start, vmml::vector<3, float> end, bool*
     { //Shallow, calculating Y
         if (m < 0)
         {
-            if (start.y() < end.y())
+            if (start.y() > end.y())
             {
                 int tempx = start.x();
                 int tempy = start.y();
@@ -348,12 +368,12 @@ void drawLineDDA(vmml::vector<3, float> start, vmml::vector<3, float> end, bool*
                 j = (in - start.x()) * m + start.y();
                 draw_pix(in, (int)j);
                 //Coordinate point(in,(int)j);
-                buffer[in * grid_width + (int)j]=true;
+                buffer[(int)j * grid_width + in]=true;
             }
         }
-        else if (m == 0 || dy == 0)
+        else if (m == 0 )
         {
-            if (start.x() > end.y())
+            if (start.x() > end.x())
             {
                 int tempx = start.x();
                 int tempy = start.y();
@@ -368,7 +388,7 @@ void drawLineDDA(vmml::vector<3, float> start, vmml::vector<3, float> end, bool*
                 draw_pix(inn, end.y());
                 //Coordinate point(inn,end.y);
                 //vertice.push_back(point);
-                buffer[inn*grid_width+(int)j]=true;
+                buffer[(int)end.y()*grid_width+(int)inn]=true;
             }
         }
         else
@@ -388,7 +408,7 @@ void drawLineDDA(vmml::vector<3, float> start, vmml::vector<3, float> end, bool*
                 draw_pix(im, (int)j);
                 //Coordinate point(im,(int)j);
                 //vertice.push_back(point);
-                buffer[im* grid_width+(int)j]=true;
+                buffer[(int)j* grid_width+im]=true;
             }
         }
     }
@@ -412,7 +432,7 @@ void drawLineDDA(vmml::vector<3, float> start, vmml::vector<3, float> end, bool*
                 draw_pix((int)i, jn);
                 //Coordinate point(i,(int)jn);
                 //vertice.push_back(point); 
-                buffer[(int)i*grid_width+jn]=true;
+                buffer[jn*grid_width+(int)i]=true;
             }
         }
         else
@@ -430,7 +450,7 @@ void drawLineDDA(vmml::vector<3, float> start, vmml::vector<3, float> end, bool*
                 int ii = (int)(start.x() + (jm - start.y()) * m);
                 draw_pix(ii, jm);
                 //Coordinate point((int)i, jm);
-                buffer[ii*grid_width + jm] = true;
+                buffer[jm*grid_width + ii] = true;
                 //vertice.push_back(point); 
             }
         }
@@ -475,8 +495,25 @@ void drawLineDDAR(vmml::vector<3, float> a, vmml::vector<3, float> b, bool* buff
 void drawLineBresenham(vmml::vector<3, float> start, vmml::vector<3, float> end, bool* buffer)
 {
     float m = (end.y() - start.y()) / (end.x() - start.x());
-    
     int x,y;
+    if(m == 1){
+        if(start.x()<end.x()){
+            y = start.x();
+        }else{
+            y = end.x();
+        }
+        for (int x = fmin(round(start.x()), round(end.x())); x <= fmax(round(start.x()), round(end.x())); x++) {
+            //Coordinate point(x, y++);
+            buffer[y*grid_width+x]=true;
+        }
+    }else if(m == -1){
+        int y;
+        for (int x = fmin(round(start.x()), round(end.x())), y = fmax(round(start.y()), round(end.y())); x <= fmax(round(start.x()), round(end.x())); x++, y--) {
+            //Coordinate point(x, y);
+            buffer[y*grid_width+x]=true;
+        }
+
+    }
     if (fabs(m) < 1) {
         int dx = fabs(end.x() - start.x()),
             dy = fabs(end.y() - start.y()),
@@ -491,6 +528,7 @@ void drawLineBresenham(vmml::vector<3, float> start, vmml::vector<3, float> end,
             y = start.y();
         }
         draw_pix(x, y);
+        buffer[y*grid_width+x]=true;
         while (x < end.x())
         {
             x++;
@@ -500,13 +538,13 @@ void drawLineBresenham(vmml::vector<3, float> start, vmml::vector<3, float> end,
             }
             else
             {
-                y++;
+                if (m> 0) {y++;} else {y--;}
                 p = p + 2 * dy - 2 * dx;
             }
             draw_pix(x, y);
             buffer[y*grid_width+x]=true;
         }
-    } else if (fabs(m) >= 1) {
+    } else if (fabs(m) >= 1) {                    
         int dx = fabs(end.x() - start.x()),
             dy = fabs(end.y() - start.y()),
             p = 2 * dx - dy;
@@ -528,18 +566,17 @@ void drawLineBresenham(vmml::vector<3, float> start, vmml::vector<3, float> end,
             {
                 p = p + (2 * dx);
             }else{
-                if(m<0){
-                    x--;
-                }else{
+                if(m>0){
                     x++;
+                }else{
+                    x--;
                 }
-        
                 p = p + (2 * dx) - (2 * dy);
             }
              draw_pix(x, y);
              buffer[y*grid_width+x]=true;
         }
-     } 
+    } 
 }
 OutCode computeoutbound(vmml::vector<3, float> point){
     OutCode code;
@@ -623,7 +660,7 @@ void rasterization(bool* buffer)
                 break;
             }
         }
-        for(xend = grid_width -1; xend >= 0; xend--){
+        for(xend = grid_width-1; xend >= 0; xend--){
             int index = j*grid_width+xend;
             if(buffer[index] == true){
                 break;
@@ -651,7 +688,6 @@ void rasterization(bool* buffer)
             }
         }
     }
-    
 }
 void translation(Coordinate transl, Polygon &poly){
     
@@ -704,11 +740,25 @@ void display()
     glLoadIdentity();
 
     for(auto p : polygonList){
+         for(int i = 0; i < grid_width; i++){
+            for(int j=0; j < grid_height; j++){
+                loadBuffer[i*grid_width + j] = false;
+       }
+    }
         for(int i = 0; i<p.vertices.size();i++){
             vmml::vector<3, float> cur = p.vertices[i];
             vmml::vector<3, float> prev = p.vertices[(i + p.vertices.size() - 1) % p.vertices.size()];
-            drawLineBresenham(cur, prev, buffer);
+            if(lineMode == 'd'){
+                drawLineDDA(cur, prev, loadBuffer);
+            }else{
+                drawLineBresenham(cur, prev, loadBuffer);
+            }
         }
+        if(rasterswitch){
+            rasterization(loadBuffer);
+        }
+
+        //ALSO NEED TO COPY TO GLOBAL BUFFER BUFFER
         //drawLineDDA(p.vertices[p.vertices.size()-1], p.vertices[0],buffer);
     }
     //rasterization(buffer);
@@ -765,6 +815,18 @@ void key(unsigned char ch, int x, int y)
 {
     switch (ch)
     {
+    case 'b':
+        lineMode = 'b';
+        break;
+
+    case 'd':
+        lineMode = 'd';
+        break;
+
+    case 'r':
+        rasterswitch = ! rasterswitch;
+        break;
+        
     default:
         //prints out which key the user hit
         printf("User hit the \"%c\" key\n", ch);
