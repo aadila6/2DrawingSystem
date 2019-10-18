@@ -10,7 +10,7 @@ CCFLAGS := -std=c++11 -Wno-deprecated
 ifneq ($(D),1)
 CCFLAGS += -O2
 else
-CCFLAGS += -O0
+CCFLAGS += -O1
 CCFLAGS += -g
 endif
 

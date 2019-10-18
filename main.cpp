@@ -117,8 +117,17 @@ struct Polygon{
         angle = 0.0;
         scale = 1.0;
     }
+
+    void printPolygon() {
+        std::cout<<"numVertices: "<<this->count<<std::endl;
+        for(int i = 0; i < count; i++) {
+            std::cout<<"x: "<<(this->vertices[i])[0]<<" y: "<<(this->vertices[i])[1]<<std::endl;
+        }
+        std::cout<<std::endl;
+    }
 };
 
+/*
 struct PolygonBorderPixels{
         int count;
         std::vector<Coordinate> Coordinates;
@@ -130,24 +139,27 @@ struct PolygonBorderPixels{
             count = incount;
             Coordinates = input;
         }
-    };
+    };*/
+
 void readinput(char *filename, std::vector<Polygon> &polygons);
 void writeFile(char *filename, std::vector<Polygon> &polygons);
 void drawLineDDA(vmml::vector<3, float> start, vmml::vector<3, float> end, bool* buffer);
 void drawLineBresenham(Coordinate start, Coordinate end, bool* buffer );
 vmml::vector<3, float> ComputeIntersection(vmml::vector<3, float> a, vmml::vector<3, float> b);
 OutCode computeoutbound(vmml::vector<3, float> point);
-void clipping(Polygon polygon);
+void clipping(Polygon polygon, Polygon poly);
 void rasterization(bool* buffer);
 bool* buffer;
 bool* loadBuffer;
 std::vector<Polygon> polygonList;
+std::vector<Polygon> cPolygonList;
 void translation(Coordinate transl, Polygon &poly);
 void rotation(float angle, Polygon &poly);
 void scaling(float scal, Polygon &poly);
 void applyTransform(Polygon &polygon);
 char lineMode;
 bool rasterswitch;
+
 int main(int argc, char **argv)
 {
     //the number of pixels in the grid
@@ -192,9 +204,11 @@ int main(int argc, char **argv)
        }
     }
     readinput("testScene.txt", polygonList);
-    translation(Coordinate(10,10),polygonList[0]);
+    readinput("testScene.txt",  cPolygonList);
+    
+    //translation(Coordinate(50,10),polygonList[0]);
     //rotation(180.0f*(3.14159265359/180),polygonList[0]);
-    scaling(1.0f,polygonList[0]);
+    //scaling(3.0f,polygonList[0]);
     for(int n = 0; n < polygonList.size(); n++){applyTransform(polygonList[n]);}
     //writeFile("testScene.txt", polygonList);
     //     int choice;
@@ -286,6 +300,8 @@ void idle()
 {
     //redraw the scene over and over again
     glutPostRedisplay();
+    //std::cout<<"idlinggggggg";
+    //scaling(3.0f,polygonList[0]);
 }
 
 void swapCor(Coordinate start, Coordinate end)
@@ -457,45 +473,13 @@ void drawLineDDA(vmml::vector<3, float> start, vmml::vector<3, float> end, bool*
     }
 }
 
-void drawLineDDAR(vmml::vector<3, float> a, vmml::vector<3, float> b, bool* buffer ){
-    int len = 0;
-    int dx = -(a.x() - b.x());
-    int dy = -(a.y() - b.y());
-    //float m = (float)dy / dx;
-    float x = 0.0f, y = 0.0f;
-    if (abs(dx) > abs(dy)){
-        len = abs(dx);
-    }else{
-        len = abs(dy);
-    }
-    dx = (dx)/len;
-    dy = (dy)/len;
-    if(dx>0){
-        x = a.x() + 0.5;
-    }else{
-        x = a.x() - 0.5;
-    }
-    if(dy>0){
-        y = a.y() + 0.5;
-    }else{
-        y = a.y()- 0.5;
-    }
-    int i = 1;
-   while(i <= len) {
-      x += dx;
-      y += dy;
-      draw_pix((int)x, (int)y);
-      buffer[(int)y*grid_width + (int)x] = true;
-      i++;
-    }
-}
 
 
 //Algorithm from class notes & textbook 
 void drawLineBresenham(vmml::vector<3, float> start, vmml::vector<3, float> end, bool* buffer)
 {
     float m = (end.y() - start.y()) / (end.x() - start.x());
-    int x,y;
+    int x = 0, y = 0;
     if(m == 1){
         if(start.x()<end.x()){
             y = start.x();
@@ -528,7 +512,12 @@ void drawLineBresenham(vmml::vector<3, float> start, vmml::vector<3, float> end,
             y = start.y();
         }
         draw_pix(x, y);
-        buffer[y*grid_width+x]=true;
+        /*if (y*grid_width + x >= grid_width*grid_height)
+        {
+            std::cout << "oops, (" << start.x() << "," << start.y() << ") - (" << end.x() << "," << end.y() << ")\n" << std::flush;
+        }*/
+        //std::cerr << "(" << y << "," << x << ")\n";
+        //buffer[y*grid_width+x]=true;
         while (x < end.x())
         {
             x++;
@@ -600,7 +589,7 @@ vmml::vector<3, float> ComputeIntersection(vmml::vector<3, float> a, vmml::vecto
     }else if(one & two){
         ;
     }else{
-        double x,y;
+        double x = 0, y = 0;
         OutCode outcodeOut = one ? one : two;
         if (outcodeOut & TOP) {           // point is above the clip window
             x = a.x() + (b.x() - a.x()) * (grid_height - a.y()) / (b.y() - a.y());
@@ -619,38 +608,30 @@ vmml::vector<3, float> ComputeIntersection(vmml::vector<3, float> a, vmml::vecto
     }
 }
 
-void clipping(Polygon polygon){
-    for(int i=0; i < polygon.vertices.size(); i++){
-        vmml::vector<3, float> currentVert = polygon.vertices[i];
-        vmml::vector<3, float> prevVert = polygon.vertices[(i+polygon.vertices.size()-1)%polygon.vertices.size()];
+void clipping(Polygon polygon, Polygon polybase){
+    polygon.vertices.clear();
+    for(int i=0; i < polybase.vertices.size(); i++){
+        vmml::vector<3, float> currentVert = polybase.vertices[i];
+        vmml::vector<3, float> prevVert = polybase.vertices[(i+polybase.vertices.size()-1)%polybase.vertices.size()];
         vmml::vector<3, float> intersect = ComputeIntersection(prevVert,currentVert);
 
         if((computeoutbound(currentVert)) == INSIDE){
             if((computeoutbound(prevVert)) != INSIDE){
                 polygon.vertices.push_back(intersect);
             }
+            polygon.vertices.push_back(currentVert);
 
         }else if((computeoutbound(prevVert)) == INSIDE){
             polygon.vertices.push_back(intersect);
-        } 
+        }else{
+            polygon.vertices.push_back(currentVert);
+        }
     }
 }
    
 void rasterization(bool* buffer)
 {
-    // bool toggle;
-    // for(int j = 0; j < grid_height; j++){ 
-    // toggle = false;
-    //    for(int i = 0; i < grid_width; i++){ 
-    //    int numtrue = 0;
-    //    if(buffer[j*grid_width+i] == true){
-    //        toggle = (!toggle);
-    //    }
-    //    if(toggle){
-    //        draw_pix(i, j);
-    //     }
-    //    }
-    // }
+   
     //Find first intecet & last. And filling between.
     for(int j = 0; j<grid_height;j++){
         int xbegin, xend;
@@ -739,6 +720,39 @@ void display()
     //clears the opengl Modelview transformation matrix
     glLoadIdentity();
 
+    // make temp geometry
+    
+    for(int u=0;u<polygonList.size();u++){
+        cPolygonList[u].vertices.clear();
+        for(int v=0;v<polygonList[u].count;v++){
+            for(int j = 0; j< polygonList[u].vertices.size();j++){
+                cPolygonList[u].vertices.push_back(polygonList[u].vertices[j]);
+            }
+        }
+    }
+
+    //Test copy
+    for(int u=0;u<polygonList.size();u++){
+        polygonList[u].printPolygon();
+    }
+
+    std::cout<<"!!!!!!!";
+
+
+    //translation(Coordinate(5,0),cPolygonList[0]);
+    //for(int n = 0; n < cPolygonList.size(); n++){applyTransform(cPolygonList[n]);}
+    // for(int a = 0; a<polygonList.size(); a++){
+    //     clipping(cPolygonList[a], polygonList[a]);
+    // }
+
+    // for(int n = 0; n < polygonList.size(); n++){
+    //     for(int j=0; j<polygonList[n].vertices.size(); j++){
+    //         //std::cout<<"Copy: "<<cPolygonList[n].vertices[j];
+    //         //std::cout<<"Orginal: "<<polygonList[n].vertices[j];
+    //     }
+    // }
+    
+
     for(auto p : polygonList){
          for(int i = 0; i < grid_width; i++){
             for(int j=0; j < grid_height; j++){
@@ -757,7 +771,7 @@ void display()
         if(rasterswitch){
             rasterization(loadBuffer);
         }
-
+        
         //ALSO NEED TO COPY TO GLOBAL BUFFER BUFFER
         //drawLineDDA(p.vertices[p.vertices.size()-1], p.vertices[0],buffer);
     }
