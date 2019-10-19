@@ -16,9 +16,6 @@ endif
 
 #include directories
 #should include gl.h glut.h etc...
-INCDIR := -I/usr/include
-INCDIR += -IMathlib
-INCDIR += -IMathlib/vmmlib
 LDLIBS := $(GLLIB)
 
 TARGET = main
