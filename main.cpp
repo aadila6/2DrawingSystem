@@ -47,6 +47,12 @@ constexpr int TOP = 8;    // 1000
 int grid_width;
 int grid_height;
 
+int xMin;
+int xMax;
+int yMin;
+int yMax;
+
+
 //the size of pixels sets the inital window height and width
 //don't make the pixels too large or the screen size will be larger than
 //your display size
@@ -67,21 +73,17 @@ void motion(int x, int y);
 void check();
 
 
-struct Coordinate
+typedef struct Coordinate
 {
-    int x, y;
-    Coordinate(int inputX, int inputY)
-    {
-        x = inputX;
-        y = inputY;
-    }
-};
+    float x, y;
+} Coordinate;
 
 struct Polygon{
     //Center of mass is 0 respect to polygon itself
     //But position vector is the centroid from the viewPort
     int count;
     vmml::vector<3, float> position;
+    Coordinate transVec;
     float angle;
     float scale;
     std::vector<vmml::vector<3, float>> vertices;
@@ -98,32 +100,43 @@ struct Polygon{
     Polygon(std::vector<Coordinate> vert)
     {
         float xtotal = 0, ytotal = 0;
-        count = vert.size();
+        this->count = vert.size();
         
         for(int i = 0; i < vert.size(); i++){
-            xtotal += vert[i].x;
-            ytotal += vert[i].y;
             vertices.push_back(
                 vmml::vector<3, float>(vert[i].x, vert[i].y, 1));
         }
         
-        position = {xtotal/vert.size(), ytotal/vert.size(), 1};
-        for (int i = 0; i < vert.size(); i++){
-            //std::cout << vertices[i] << std::endl;
-            vertices[i] -= position;
-            vertices[i].z() = 1.0f;
-        }
+        updateCentroid();
 
+        // for (int i = 0; i < vert.size(); i++){
+        //     //std::cout << vertices[i] << std::endl;
+        //     vertices[i] -= position;
+        //     vertices[i].z() = 1.0f;
+        // }
+
+        transVec.x = 0.0;
+        transVec.y = 0.0;
         angle = 0.0;
         scale = 1.0;
     }
 
     void printPolygon() {
         std::cout<<"numVertices: "<<this->count<<std::endl;
-        for(int i = 0; i < count; i++) {
+        for(int i = 0; i < this->count; i++) {
             std::cout<<"x: "<<(this->vertices[i])[0]<<" y: "<<(this->vertices[i])[1]<<std::endl;
         }
         std::cout<<std::endl;
+    }
+
+    void updateCentroid() {
+        float xtotal = 0, ytotal = 0;
+        for(int i = 0; i < this->count; i++){
+            xtotal += this->vertices[i].x();
+            ytotal += this->vertices[i].y();        
+        }
+        
+        this->position = {xtotal/(float)(this->count), ytotal/(float)(this->count), 1};
     }
 };
 
@@ -156,15 +169,28 @@ std::vector<Polygon> cPolygonList;
 void translation(Coordinate transl, Polygon &poly);
 void rotation(float angle, Polygon &poly);
 void scaling(float scal, Polygon &poly);
-void applyTransform(Polygon &polygon);
+//void applyTransform(Polygon &polygon);
 char lineMode;
 bool rasterswitch;
+float angle;
 
+float scale;
+int iD;
+float translationX, translationY,
+sFactor, cliponeX,cliponeY, cliptwoX, cliptwoY;
+
+//poly clipping
+void polyClip(Polygon &poly);
+void polyClipLeft(Polygon &poly);
+void polyClipRight(Polygon &poly); 
+void polyClipBottom(Polygon &poly);
+void polyClipTop(Polygon &poly);
+void exchangeV(vmml::vector<3, float> &vA, vmml::vector<3, float> &vB);  
+void copyList(std::vector<vmml::vector<3, float>> &s, std::vector<vmml::vector<3, float>> &t, int n);
+void copyVertex(vmml::vector<3, float> &s, vmml::vector<3, float> &t);
 int main(int argc, char **argv)
 {
-    //the number of pixels in the grid
-    // grid_width = 100;
-    // grid_height = 100;
+   
 
     //the size of pixels sets the inital window height and width
     //don't make the pixels too large or the screen size will be larger than
@@ -177,18 +203,21 @@ int main(int argc, char **argv)
 
     /*Set up glut functions*/
     /** See https://www.opengl.org/resources/libraries/glut/spec3/spec3.html ***/
-    float angle=0.0f;
-    int iD=0;
-    float translationX=0, translationY=0 , sFactor=1, cliponeX=0,cliponeY=0, cliptwoX=0, cliptwoY=0;
+    
     grid_width = 100;
     grid_height = 100;
+
+    xMin = 0;
+    xMax = grid_width;
+    yMin = 0;
+    yMax = grid_height;
+    int iD=0;
+    translationX = 0; 
+    translationY=0;
+    sFactor=1;
     lineMode = 'd';
     rasterswitch = false;
 
-    // for(int n = 0; n < polygonList.size(); n++){
-    //     rotation(90.0f*(3.14159265359/180),polygonList[n]);
-    //     applyTransform(polygonList[n]);
-    // }
     // std::cout << "Please enter width of window: " ;
     // std::cin>> grid_width;
     // std::cout << "Please enter height of window: ";
@@ -206,63 +235,7 @@ int main(int argc, char **argv)
     readinput("testScene.txt", polygonList);
     readinput("testScene.txt",  cPolygonList);
     
-    //translation(Coordinate(50,10),polygonList[0]);
-    //rotation(180.0f*(3.14159265359/180),polygonList[0]);
-    //scaling(3.0f,polygonList[0]);
-    for(int n = 0; n < polygonList.size(); n++){applyTransform(polygonList[n]);}
-    //writeFile("testScene.txt", polygonList);
-    //     int choice;
-    // // //while(choice!=6){
-    //     std::cout << "1. Rotation \n";  
-    //     std::cout << "2. Translation\n";  
-    //     std::cout << "3. Scalling \n";  
-    //     std::cout << "4. Clipping \n";
-    //     std::cout << "5. Exit \n";
-    //     std::cout << "Please select one of options above for your operation: ";
-    //     std::cin>> choice;
 
-    //     switch (choice) 
-    //     { 
-    //         case 1:  
-    //             std::cout << "Please enter rotation angle: ";
-    //             std::cin>> angle;
-    //             std::cout << "Please enter Polygon ID such as 0,1,2.. for you operation: ";
-    //             std::cin>> iD;
-    //             break;
-    //         case 2:
-    //             std::cout << "Please enter translation in x and y direction: such as 10 10 ";
-    //             std::cin>> translationX >> translationY;
-    //             std::cout << "Please enter Polygon ID such as 0,1,2 for you operation: ";
-    //             std::cin>> iD;
-    //             translation(Coordinate(translationX,translationY),polygonList[iD]);
-    //             for(int n = 0; n < polygonList.size(); n++){applyTransform(polygonList[n]);}
-    //             break; 
-    //         case 3:  
-    //             std::cout << "Please enter scalling factor: " ;
-    //             std::cin>> sFactor;
-    //             std::cout << "Please enter Polygon ID such as 0,1,2.. for you operation: ";
-    //             std::cin>> iD;
-    //             scaling(sFactor,polygonList[iD]);
-    //             for(int n = 0; n < polygonList.size(); n++){applyTransform(polygonList[n]);}
-    //             break; 
-    //         case 4:  
-    //             std::cout << "Please enter first clipping coordinates such as 10 10: ";
-    //             std::cin>> cliponeX >> cliponeY;
-    //             std::cout << "Please enter the second clipping coordinates such as 10 10: " ;
-    //             std::cin>> cliptwoX >> cliptwoY;
-    //             std::cout << "Please enter Polygon ID such as 0,1,2.. for you operation: ";
-    //             std::cin >> iD;
-    //             break; 
-    //         case 5: 
-    //             break; 
-    //         default:  
-    //             break;
-    //     }
-    // translation(Coordinate(translationX,translationY),polygonList[iD]);
-    // rotation(angle*(3.14159265359/180),polygonList[iD]);
-    // scaling(1.0f,polygonList[iD]);
-    // for(int n = 0; n < polygonList.size(); n++){applyTransform(polygonList[n]);}
-    //}
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
     /*initialize variables, allocate memory, create buffers, etc. */
@@ -300,8 +273,57 @@ void idle()
 {
     //redraw the scene over and over again
     glutPostRedisplay();
-    //std::cout<<"idlinggggggg";
-    //scaling(3.0f,polygonList[0]);
+    iD=0;
+    translationX = 0; 
+    translationY=0;
+    sFactor=1;
+        int choice;
+        char line;
+        std::cout << "Please enter 'b' for Bresemham, 'd' for DDA: "; 
+        std::cin>>line;
+        lineMode = line;
+        std::cout << "1. Rotation \n";  
+        std::cout << "2. Translation\n";  
+        std::cout << "3. Scalling \n";  
+        std::cout << "4. Clipping \n";
+        std::cout << "5. Exit \n";
+        std::cout << "Please select one of options above for your operation: ";
+        std::cin>> choice;
+        switch (choice) 
+        { 
+            case 1:  
+                std::cout << "Please enter rotation angle: ";
+                std::cin>> angle;
+                std::cout << "Please enter Polygon ID such as 0,1,2.. for you operation: ";
+                std::cin>> iD;
+                break;
+            case 2:
+                std::cout << "Please enter translation in x and y direction: ";
+                std::cin>> translationX >> translationY;
+                std::cout << "Please enter Polygon ID such as 0,1,2 for you operation: ";
+                std::cin>> iD;
+                break; 
+            case 3:  
+                std::cout << "Please enter scalling factor: " ;
+                std::cin>> sFactor;
+                std::cout << "Please enter Polygon ID such as 0,1,2.. for you operation: ";
+                std::cin>> iD;
+                break; 
+            case 4:  
+                std::cout << "Please enter first clipping coordinates seperated by a space: ";
+                std::cin>> cliponeX >> cliponeY;
+                std::cout << "Please enter the second clipping coordinates seperated by a space: " ;
+                std::cin>> cliptwoX >> cliptwoY;
+                std::cout << "Please enter Polygon ID such as 0,1,2.. for you operation: ";
+                std::cin >> iD;
+                break; 
+            case 5: 
+                writeFile("testScene.txt", polygonList);
+                exit(0);
+                break; 
+            default:  
+                break;
+        }
 }
 
 void swapCor(Coordinate start, Coordinate end)
@@ -336,7 +358,7 @@ void readinput(char *filename, std::vector<Polygon> &polygons){
             getline(record, inputY);
             x = std::stof(inputX);
             y = std::stof(inputY);
-            Coordinate point(x,y);
+            Coordinate point = {.x = x, .y = y};
             vertices.push_back(point);
         }
         Polygon polygon(vertices);
@@ -672,45 +694,94 @@ void rasterization(bool* buffer)
 }
 void translation(Coordinate transl, Polygon &poly){
     
-    poly.position.x() += transl.x; 
-    poly.position.y() += transl.y; 
+    for(int i = 0; i < poly.count; i++) {
+        vmml::vector<3, float> temp = poly.vertices[i];
+        temp[0] = temp[0] + transl.x;
+        temp[0] = temp[0] + transl.y;
+        poly.vertices[i] = temp;
+    } 
+
+    poly.updateCentroid();
+
 }
 void rotation(float angle, Polygon &poly){
-    poly.angle = angle;
+    
+    Coordinate trans2Ori = {.x = -poly.position[0], .y = -poly.position[1]};
+    Coordinate trans2Cen = {.x = poly.position[0], .y = poly.position[1]};
+    float rotateAngleInRad = (angle / 180.0) * 3.14;
+    float cosA = cos(rotateAngleInRad);
+    float sinA = sin(rotateAngleInRad);
+
+    translation(trans2Ori, poly);
+    
+    for(int i = 0; i < poly.count; i++) {
+        float currX = poly.vertices[i].x();
+        float currY = poly.vertices[i].y();
+
+        float nextX = currX * cosA + currY * (-sinA);
+        float nextY = currX * sinA + currY * cosA;
+        
+        vmml::vector<3, float> temp = {nextX,nextY,1} ;
+        poly.vertices[i] = temp;
+        
+    }
+
+    
+
+    translation(trans2Cen, poly);    
 }
 void scaling(float scal, Polygon &poly){
-    poly.scale = scal;
-}
-void applyTransform(Polygon &polygon){
-    vmml::matrix<3,3> transl_M;
-    vmml::matrix<3,3> rotate_M;
-    vmml::matrix<3,3> scale_M;
-    transl_M(0,0) = 1.0f;
-    //transl_M(0,1) = 0.0f;
-    transl_M(0,2) = polygon.position.x();
-    //transl_M(1,0) = 0.0f;
-    transl_M(1,1) = 1.0f;
-    transl_M(1,2) = polygon.position.y();
-    transl_M(2,2) = 1.0f;
-    //transl_M(2,1) = 0.0f;
-    //transl_M(2,0) = 0.0f;
-    rotate_M(0,0) = cos(polygon.angle);
-    rotate_M(0,1) = -sin(polygon.angle);
-    //rotate_M(0,2) = 0;
-    rotate_M(1,0) = sin(polygon.angle);
-    rotate_M(1,1) = cos(polygon.angle);
-    //rotate_M(1,2) = 0;
-    //rotate_M(2,0) = 0;
-    //rotate_M(2,1) = 0;
-    rotate_M(2,2) = 1.0f;
-    scale_M(0,0) = polygon.scale;
-    scale_M(1,1) = polygon.scale;
-    scale_M(2,2) = 1;
-    vmml::matrix<3,3> changes = transl_M*scale_M*rotate_M;
-    for(int i = 0; i< polygon.vertices.size(); i++){
-        polygon.vertices[i] = changes * polygon.vertices[i];
+
+    Coordinate trans2Ori = {.x = -poly.position[0], .y = -poly.position[1]};
+    Coordinate trans2Cen = {.x = poly.position[0], .y = poly.position[1]};
+
+    translation(trans2Ori, poly);
+    for(int i = 0; i < poly.count; i++) {
+        
+        float currX = poly.vertices[i].x();
+        float currY = poly.vertices[i].y();
+        //std::cout<<"currx: "<<currX<<" currY: "<<currY<<std::endl;
+        float nextX = currX * scal;
+        float nextY = currY * scal;
+        //std::cout<<"nextx: "<<nextX<<" nextY: "<<nextY<<std::endl;
+
+        poly.vertices[i][0] = nextX;
+        poly.vertices[i][1] = nextY;
     }
+
+    translation(trans2Cen, poly);  
 }
+
+// void applyTransform(Polygon &polygon){
+//     vmml::matrix<3,3> transl_M;
+//     vmml::matrix<3,3> rotate_M;
+//     vmml::matrix<3,3> scale_M;
+//     transl_M(0,0) = 1.0f;
+//     //transl_M(0,1) = 0.0f;
+//     transl_M(0,2) = polygon.position.x();
+//     //transl_M(1,0) = 0.0f;
+//     transl_M(1,1) = 1.0f;
+//     transl_M(1,2) = polygon.position.y();
+//     transl_M(2,2) = 1.0f;
+//     //transl_M(2,1) = 0.0f;
+//     //transl_M(2,0) = 0.0f;
+//     rotate_M(0,0) = cos(polygon.angle);
+//     rotate_M(0,1) = -sin(polygon.angle);
+//     //rotate_M(0,2) = 0;
+//     rotate_M(1,0) = sin(polygon.angle);
+//     rotate_M(1,1) = cos(polygon.angle);
+//     //rotate_M(1,2) = 0;
+//     //rotate_M(2,0) = 0;
+//     //rotate_M(2,1) = 0;
+//     rotate_M(2,2) = 1.0f;
+//     scale_M(0,0) = polygon.scale;
+//     scale_M(1,1) = polygon.scale;
+//     scale_M(2,2) = 1;
+//     vmml::matrix<3,3> changes = transl_M*scale_M*rotate_M;
+//     for(int i = 0; i< polygon.vertices.size(); i++){
+//         polygon.vertices[i] = changes * polygon.vertices[i];
+//     }
+// }
 
 //this is where we render the screen
 void display()
@@ -720,8 +791,6 @@ void display()
     //clears the opengl Modelview transformation matrix
     glLoadIdentity();
 
-    // make temp geometry
-    
     for(int u=0;u<polygonList.size();u++){
         cPolygonList[u].vertices.clear();
         for(int v=0;v<polygonList[u].count;v++){
@@ -729,21 +798,8 @@ void display()
                 cPolygonList[u].vertices.push_back(polygonList[u].vertices[j]);
             }
         }
+        cPolygonList[u].count = polygonList[u].count;
     }
-
-    //Test copy
-    for(int u=0;u<polygonList.size();u++){
-        polygonList[u].printPolygon();
-    }
-
-    std::cout<<"!!!!!!!";
-
-
-    //translation(Coordinate(5,0),cPolygonList[0]);
-    //for(int n = 0; n < cPolygonList.size(); n++){applyTransform(cPolygonList[n]);}
-    // for(int a = 0; a<polygonList.size(); a++){
-    //     clipping(cPolygonList[a], polygonList[a]);
-    // }
 
     // for(int n = 0; n < polygonList.size(); n++){
     //     for(int j=0; j<polygonList[n].vertices.size(); j++){
@@ -751,17 +807,47 @@ void display()
     //         //std::cout<<"Orginal: "<<polygonList[n].vertices[j];
     //     }
     // }
-    
 
-    for(auto p : polygonList){
-         for(int i = 0; i < grid_width; i++){
+    for(int u=0;u<cPolygonList.size();u++){
+        cPolygonList[u].angle = angle;
+        cPolygonList[u].scale = sFactor;
+        cPolygonList[u].transVec.x = translationX;
+        cPolygonList[u].transVec.y = translationY;
+        if(!(cPolygonList[u].transVec.x == 0 || cPolygonList[u].transVec.y == 0 )) {
+            translation(cPolygonList[u].transVec, cPolygonList[u]);
+        }
+
+        if(!(cPolygonList[u].angle == 0)) {
+            rotation(cPolygonList[u].angle, cPolygonList[u]);
+        }
+
+        if(!(cPolygonList[u].scale == 1)) {
+            scaling(cPolygonList[u].scale, cPolygonList[u]);
+        }
+
+        cPolygonList[u].transVec = Coordinate{0.0, 0.0};
+        cPolygonList[u].angle = 0.0;
+        cPolygonList[u].scale = 1.0;
+    }
+    
+    //  for(int a = 0; a<cPolygonList.size(); a++){
+    //     clipping(cPolygonList[a], polygonList[a]);
+    //}
+
+    // for(int a = 0; a<cPolygonList.size(); a++){
+    //      polyClip(cPolygonList[a]);
+    // }
+
+    for(auto p : cPolygonList){
+        for(int i = 0; i < grid_width; i++){
             for(int j=0; j < grid_height; j++){
                 loadBuffer[i*grid_width + j] = false;
-       }
-    }
-        for(int i = 0; i<p.vertices.size();i++){
+            }
+        }
+
+        for(int i = 0; i<p.count;i++){
             vmml::vector<3, float> cur = p.vertices[i];
-            vmml::vector<3, float> prev = p.vertices[(i + p.vertices.size() - 1) % p.vertices.size()];
+            vmml::vector<3, float> prev = p.vertices[(i + p.count - 1) % p.count];
             if(lineMode == 'd'){
                 drawLineDDA(cur, prev, loadBuffer);
             }else{
@@ -771,12 +857,7 @@ void display()
         if(rasterswitch){
             rasterization(loadBuffer);
         }
-        
-        //ALSO NEED TO COPY TO GLOBAL BUFFER BUFFER
-        //drawLineDDA(p.vertices[p.vertices.size()-1], p.vertices[0],buffer);
     }
-    //rasterization(buffer);
-
 
     //blits the current opengl framebuffer on the screen
     glutSwapBuffers();
@@ -840,7 +921,7 @@ void key(unsigned char ch, int x, int y)
     case 'r':
         rasterswitch = ! rasterswitch;
         break;
-        
+    
     default:
         //prints out which key the user hit
         printf("User hit the \"%c\" key\n", ch);
@@ -893,4 +974,230 @@ void check()
         printf("GLERROR: There was an error %s\n", gluErrorString(err));
         exit(1);
     }
+}
+
+
+void polyClip(Polygon &poly) {
+    std::cout<<"vertex num: "<<poly.count<<std::endl;
+    poly.printPolygon();
+    for(int dir = 0; dir < 4; dir++) {
+        if(dir == 0) {
+            std::cout<<"starting Left: "<<std::endl; 
+            polyClipLeft(poly);
+            std::cout<<"Left: "<<poly.count<<std::endl;
+            poly.printPolygon();
+        } else if(dir == 1) {
+            std::cout<<"starting Right: "<<std::endl; 
+            polyClipRight(poly);
+            std::cout<<"Right: "<<poly.count<<std::endl;
+            poly.printPolygon();
+        } else  if(dir == 2) {
+            std::cout<<"starting Bottom: "<<std::endl; 
+            polyClipBottom(poly);
+            std::cout<<"Bottom: "<<poly.count<<std::endl;
+            poly.printPolygon();
+        } else if(dir == 3) {
+            std::cout<<"starting Top: "<<std::endl; 
+            polyClipTop(poly);
+            std::cout<<"Top: "<<poly.count<<std::endl;
+            poly.printPolygon();
+        }
+    }
+    std::cout<<"poly finished"<<std::endl;
+}
+
+void polyClipLeft(Polygon &poly) {
+    std::vector<vmml::vector<3, float>> vs;
+    int n = poly.count;
+    int vsLen = 0;
+
+    for(int i = 0; i < n; i++) {
+        vmml::vector<3, float> vA;
+        vmml::vector<3, float> vB;
+        copyVertex(poly.vertices[i], vA);
+        copyVertex(poly.vertices[(i + 1) % n], vB);
+
+        //outside?
+        if(vA.x() < xMin && vB.x() < xMin) {
+            //discard
+        } else if(vA.x() >= xMin && vB.x() >= xMin) {
+            //inside?
+            //keep both
+            vs.push_back(vA);
+            vs.push_back(vB);
+            vsLen += 2;
+        } else  {
+             //partial
+            if(vB.x() < xMin) {
+                exchangeV(vA, vB);
+            }
+
+            //vs.push_back(vB);  
+            
+            //find vert
+            float k = (vB.y()-vA.y()) / (vB.x() - vA.x());
+            float intersectVal = vA.y() + (xMin-vA.x()) * k;
+            vmml::vector<3, float> v = {xMin, intersectVal, 1};
+            vs.push_back(v);
+            vsLen += 1;          
+        }
+    }
+
+    poly.count = vsLen;
+    
+    copyList(vs, poly.vertices, vsLen);
+    std::cout<<"copied: "<<std::endl; 
+}
+
+void polyClipRight(Polygon &poly) {
+    std::vector<vmml::vector<3, float>> vs;
+    int n = poly.count;
+    int vsLen = 0;
+
+    for(int i = 0; i < n; i++) {
+        vmml::vector<3, float> vA;
+        vmml::vector<3, float> vB;
+        copyVertex(poly.vertices[i], vA);
+        copyVertex(poly.vertices[(i + 1) % n], vB);
+
+        //outside?
+        if(vA.x() > xMax && vB.x() > xMax) {
+            //discard
+        } else if(vA.x() <= xMax && vB.x() <= xMax) {
+            //inside?
+            //keep both
+            vs.push_back(vA);
+            vs.push_back(vB);
+            vsLen += 2;
+        } else  {
+             //partial
+            if(vB.x() > xMax) {
+                exchangeV(vA, vB);
+            }
+
+            //vs.push_back(vB);  
+            //find vert
+        
+            float k = (vB.y()-vA.y()) / (vB.x() - vA.x());
+            float intersectVal = vA.y() + (xMax-vA.x()) * k;
+            vmml::vector<3, float> v = {xMax, intersectVal, 1};
+
+            vs.push_back(v);
+            vsLen += 1;          
+        }
+    }
+
+    poly.count = vsLen;     
+    copyList(vs, poly.vertices, vsLen);
+}
+
+void polyClipBottom(Polygon &poly) {
+    std::vector<vmml::vector<3, float>> vs;
+    int n = poly.count;
+    int vsLen = 0;
+
+    for(int i = 0; i < n; i++) {
+        vmml::vector<3, float> vA;
+        vmml::vector<3, float> vB;
+        copyVertex(poly.vertices[i], vA);
+        copyVertex(poly.vertices[(i + 1) % n], vB);
+
+        //outside?
+        if(vA.y() < yMin && vB.y() < yMin) {
+            //discard
+        } else if(vA.y() >= yMin && vB.y() >= yMin) {
+            //inside?
+            //keep both
+            vs.push_back(vA);
+            vs.push_back(vB);
+            vsLen += 2;
+        } else  {
+             //partial
+            if(vB.y() < yMin) {
+                exchangeV(vA, vB);
+            }
+
+            //vs.push_back(vB);  
+            //find vert
+        
+            float k = (vB.y()-vA.y()) / (vB.x() - vA.x());
+            float intersectVal = vA.x() + (yMin-vA.y()) / k;
+            vmml::vector<3, float> v = {intersectVal, yMin, 1};
+
+            vs.push_back(v);
+            vsLen += 1;          
+        }
+    }
+
+    poly.count = vsLen;    
+    copyList(vs, poly.vertices, vsLen);
+}
+
+void polyClipTop(Polygon &poly) {
+    std::vector<vmml::vector<3, float>> vs;
+    int n = poly.count;
+    int vsLen = 0;
+
+    for(int i = 0; i < n; i++) {
+        vmml::vector<3, float> vA;
+        vmml::vector<3, float> vB;
+        copyVertex(poly.vertices[i], vA);
+        copyVertex(poly.vertices[(i + 1) % n], vB);
+
+        //outside?
+        if(vA.y() > yMax && vB.y() > yMax) {
+            //discard
+        } else if(vA.y() <= yMax && vB.y() <= yMax) {
+            //inside?
+            //keep both
+            vs.push_back(vA);
+            vs.push_back(vB);
+            vsLen += 2;
+        } else  {
+             //partial
+            if(vB.y() > yMax) {
+                exchangeV(vA, vB);
+            }
+
+            //vs.push_back(vB);  
+            //find vert
+        
+            float k = (vB.y()-vA.y()) / (vB.x() - vA.x());
+            float intersectVal = vA.x() + (yMax-vA.y()) / k;
+            vmml::vector<3, float> v = {intersectVal, yMax, 1};
+
+            vs.push_back(v);
+            vsLen += 1;          
+        }
+    }
+
+    poly.count = vsLen;    
+    copyList(vs, poly.vertices, vsLen);
+}
+
+void exchangeV(vmml::vector<3, float> &vA, vmml::vector<3, float> &vB) {
+    float tempX, tempY;
+    tempX = vA.x();
+    tempY = vA.y();
+    vA.x() = vB.x();
+    vA.y() = vB.y();
+    vB.x() = tempX;
+    vB.y() = tempY;
+}
+
+void copyList(std::vector<vmml::vector<3, float>> &s, std::vector<vmml::vector<3, float>> &t, int n) {
+    t.clear();
+    for(int i = 0; i < n; i++) {
+        vmml::vector<3, float> temp;
+        temp.x() = s.at(i).x();
+        temp.y() = s.at(i).y();
+        temp.z() = 1;
+        t.push_back(temp);
+    }
+}
+
+void copyVertex(vmml::vector<3, float> &s, vmml::vector<3, float> &t) {
+    t.x() = s.x();
+    t.y() = s.y();
+    t.z() = 1;
 }
