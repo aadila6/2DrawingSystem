@@ -1,6 +1,7 @@
 /*
-    * Simple glut demo that can be used as a template for
-    * other projects by sai kopparthi
+    * Abudureheman Adila
+    * ECS 175 Project #1 
+    * UC Davis, Fall 2019
     */
 
 #ifdef WIN32
@@ -33,8 +34,7 @@
 #include <vector>
 #include <algorithm>
 //other files
-//#include "vector.hpp"
-//#include "matrix.hpp"
+
 
 typedef int OutCode;
 constexpr int INSIDE = 0; // 0000
@@ -194,21 +194,10 @@ int main(int argc, char **argv)
     lineMode = 'd';
     rasterswitch = false;
     angleG = 0;
-    scaleG = 0;
-    iD = 0;
+    scaleG = 1;
+    iD = -1;
     translationXG = 0;
     translationYG = 0;
-    sFactor = 1;
-    
-
-    // for(int n = 0; n < polygonList.size(); n++){
-    //     rotation(90.0f*(3.14159265359/180),polygonList[n]);
-    //     applyTransform(polygonList[n]);
-    // }
-    // std::cout << "Please enter width of window: " ;
-    // std::cin>> grid_width;
-    // std::cout << "Please enter height of window: ";
-    // std::cin>> grid_height;
     win_height = grid_height * pixel_size;
     win_width = grid_width * pixel_size;
     loadBuffer = new bool[grid_height* grid_width];
@@ -259,57 +248,61 @@ void idle()
 {
     //redraw the scene over and over again
     glutPostRedisplay();
-    //  iD=0;
-    // translationX = 0; 
-    // translationY=0;
-    // sFactor=1;
-    //     int choice;
-    //     char line;
-    //     std::cout << "Please enter 'b' for Bresemham, 'd' for DDA: "; 
-    //     std::cin>>line;
-    //     lineMode = line;
-    //     std::cout << "1. Rotation \n";  
-    //     std::cout << "2. Translation\n";  
-    //     std::cout << "3. Scalling \n";  
-    //     std::cout << "4. Clipping \n";
-    //     std::cout << "5. Exit \n";
-    //     std::cout << "Please select one of options above for your operation: ";
-    //     std::cin>> choice;
-    //     switch (choice) 
-    //     { 
-    //         case 1:  
-    //             std::cout << "Please enter rotation angle: ";
-    //             std::cin>> angle;
-    //             std::cout << "Please enter Polygon ID such as 0,1,2.. for you operation: ";
-    //             std::cin>> iD;
-    //             break;
-    //         case 2:
-    //             std::cout << "Please enter translation in x and y direction: ";
-    //             std::cin>> translationX >> translationY;
-    //             std::cout << "Please enter Polygon ID such as 0,1,2 for you operation: ";
-    //             std::cin>> iD;
-    //             break; 
-    //         case 3:  
-    //             std::cout << "Please enter scalling factor: " ;
-    //             std::cin>> sFactor;
-    //             std::cout << "Please enter Polygon ID such as 0,1,2.. for you operation: ";
-    //             std::cin>> iD;
-    //             break; 
-    //         case 4:  
-    //             std::cout << "Please enter first clipping coordinates seperated by a space: ";
-    //             std::cin>> cliponeX >> cliponeY;
-    //             std::cout << "Please enter the second clipping coordinates seperated by a space: " ;
-    //             std::cin>> cliptwoX >> cliptwoY;
-    //             std::cout << "Please enter Polygon ID such as 0,1,2.. for you operation: ";
-    //             std::cin >> iD;
-    //             break; 
-    //         case 5: 
-    //             writeFile("testScene.txt", polygonList);
-    //             exit(0);
-    //             break; 
-    //         default:  
-    //             break;
-    //     }
+    iD=0;
+    angleG=0;
+    translationXG = 0; 
+    translationYG=0;
+
+    
+    int choice;
+        char line;
+        char ra;
+        std::cout << "Bresemham or DDA [b/d]: "; 
+        std::cin>>line;
+        lineMode = line;
+        std::cout << "Rasterize all polygons? [y/n]: "; 
+        std::cin>>ra;
+        if(ra=='y'){rasterswitch=true;}else{rasterswitch=false;}
+        std::cout << "1. Rotation \n";  
+        std::cout << "2. Translation\n";  
+        std::cout << "3. Scalling \n";  
+        std::cout << "4. Clipping \n";
+        std::cout << "5. Exit \n";
+        std::cout << "Please select one of options above for your operation: ";
+        std::cin>> choice;
+        switch (choice) 
+        { 
+            case 1:  
+                std::cout << "Please enter rotation angle: ";
+                std::cin>> angleG;
+                std::cout << "Please enter Polygon ID, -1 for all together, 1,2,3.. for specific ones: ";
+                std::cin>> iD;
+                break;
+            case 2:
+                std::cout << "Please enter translation in x and y direction: ";
+                std::cin>> translationXG >> translationYG;
+                std::cout << "Please enter Polygon ID, -1 for all together, 1,2,3.. for specific ones: ";
+                std::cin>> iD;
+                break; 
+            case 3:  
+                std::cout << "Please enter scalling factor: " ;
+                std::cin>> scaleG;
+                std::cout << "Please enter Polygon ID, -1 for all together, 0,1,2, for specific ones: ";
+                std::cin>> iD;
+                break; 
+            case 4:  
+                std::cout << "Please enter left clipping coordinates seperated by a space: ";
+                std::cin>> xMin >> yMin;
+                std::cout << "Please enter the right clipping coordinates seperated by a space: " ;
+                std::cin>> xMax >> xMax;
+                break; 
+            case 5: 
+                writeFile("testScene.txt", polygonList);
+                exit(0);
+                break; 
+            default:  
+                break;
+        }
 }
 
 void swapCor(Coord start, Coord end)
@@ -663,12 +656,13 @@ void display()
     for(int u=0;u<polygonList.size();u++){
         cPolygonList.push_back(polygonList[u]);
     }
-    
-    for(int u=0;u<cPolygonList.size();u++){
-        cPolygonList[u].angle = 90;
-        //cPolygonList[u].scale = 1.3;
-        cPolygonList[u].transVec.x = 10;
-        cPolygonList[u].transVec.y = 10;
+    if(iD == -1){
+        for(int u=0;u<cPolygonList.size();u++){
+        cPolygonList[u].angle = angleG;
+        cPolygonList[u].scale = scaleG;
+        cPolygonList[u].transVec.x = translationXG;
+        cPolygonList[u].transVec.y = translationYG;
+
         if(!(cPolygonList[u].transVec.x == 0 && cPolygonList[u].transVec.y == 0 )) {
             translation(cPolygonList[u].transVec, cPolygonList[u]);
         }
@@ -684,8 +678,36 @@ void display()
         cPolygonList[u].transVec = Coord(0.0, 0.0);
         cPolygonList[u].angle = 0.0;
         cPolygonList[u].scale = 1.0;
+        }
+    }else{
+        cPolygonList[iD].angle = angleG;
+        cPolygonList[iD].scale = scaleG;
+        cPolygonList[iD].transVec.x = translationXG;
+        cPolygonList[iD].transVec.y = translationYG;
+
+        if(!(cPolygonList[iD].transVec.x == 0 && cPolygonList[iD].transVec.y == 0 )) {
+            translation(cPolygonList[iD].transVec, cPolygonList[iD]);
+        }
+
+        if(!(cPolygonList[iD].angle == 0)) {
+            rotation(cPolygonList[iD].angle, cPolygonList[iD]);
+        }
+
+        if(!(cPolygonList[iD].scale == 1)) {
+            scaling(cPolygonList[iD].scale, cPolygonList[iD]);
+        }
+        cPolygonList[iD].transVec = Coord(0.0, 0.0);
+        cPolygonList[iD].angle = 0.0;
+        cPolygonList[iD].scale = 1.0;
     }
     
+    
+    //copy cpoly to poly then work from there next round
+    polygonList.clear();
+    for(int u=0;u<cPolygonList.size();u++){
+        polygonList.push_back(cPolygonList[u]);
+        
+    }
     for(int a = 0; a<cPolygonList.size(); a++){
         polyClip(cPolygonList[a]);
     }
@@ -702,7 +724,7 @@ void display()
            	}
         }
         
-        if(true){
+        if(rasterswitch){
         	for(auto p : cPolygonList) {
         		rasterization(p);
         	}
@@ -783,8 +805,7 @@ void key(unsigned char ch, int x, int y)
     case 'r':
         rasterswitch = ! rasterswitch;
         break;
-    case 'w':
-
+    
     default:
         //prints out which key the user hit
         printf("User hit the \"%c\" key\n", ch);
