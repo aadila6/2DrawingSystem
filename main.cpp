@@ -44,6 +44,7 @@ constexpr int BOTTOM = 4; // 0100
 constexpr int TOP = 8;    // 1000
 /****set in main()****/
 //the number of pixels in the grid
+char *inputFileName;
 int grid_width;
 int grid_height;
 
@@ -166,13 +167,7 @@ void copyList(std::vector<std::vector<float>> &s, std::vector<std::vector<float>
 void copyVertex(std::vector<float> &s, std::vector<float> &t);
 int main(int argc, char **argv)
 {
-    //the number of pixels in the grid
-    // grid_width = 100;
-    // grid_height = 100;
-
-    //the size of pixels sets the inital window height and width
-    //don't make the pixels too large or the screen size will be larger than
-    //your display size
+    inputFileName = "testScene.txt";
     pixel_size = 5;
 
     /*Window information*/
@@ -206,7 +201,8 @@ int main(int argc, char **argv)
            loadBuffer[j*grid_width + i] = false;
        }
     }
-    readinput("testScene.txt", polygonList);
+    
+    readinput(inputFileName, polygonList);
     
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_SINGLE | GLUT_RGB);
@@ -297,7 +293,7 @@ void idle()
                 std::cin>> xMax >> xMax;
                 break; 
             case 5: 
-                writeFile("testScene.txt", polygonList);
+                writeFile(inputFileName, polygonList);
                 exit(0);
                 break; 
             default:  
