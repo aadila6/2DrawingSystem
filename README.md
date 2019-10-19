@@ -22,5 +22,8 @@ if choice is 5: My program will save the previous result and quit
 Step 7:  
 Enter which polygon would you be performing on: -1 for all together, 0,1,2.. otherwise  
 
+##### Change the input file
+In my main function, first line is the input text name as :testScene.txt
+If you need to change, just change that one
 ## Thank you for using my program, have a great day!
 
